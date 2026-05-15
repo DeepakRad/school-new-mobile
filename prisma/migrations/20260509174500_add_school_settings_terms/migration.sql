@@ -1,0 +1,2 @@
+ALTER TABLE "SchoolSettings"
+ADD COLUMN IF NOT EXISTS "terms" JSONB NOT NULL DEFAULT '[]'::jsonb;
