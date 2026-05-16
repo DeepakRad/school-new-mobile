@@ -20,22 +20,22 @@ export async function GET(request: Request): Promise<Response> {
       const [y, m] = monthParam.split('-').map(Number);
       if (y && m) {
         dateFilter = {
-          gte: new Date(y, m - 1, 1),
-          lte: new Date(y, m, 0, 23, 59, 59),
+          gte: new Date(Date.UTC(y, m - 1, 1)),
+          lte: new Date(Date.UTC(y, m, 1) - 1),
         };
       }
     } else if (yearParam) {
-      const y = parseInt(yearParam, 10);
+      const y = parseInt(yearParam);
       dateFilter = {
-        gte: new Date(y, 0, 1),
-        lte: new Date(y, 11, 31, 23, 59, 59),
+        gte: new Date(Date.UTC(y, 0, 1)),
+        lte: new Date(Date.UTC(y + 1, 0, 1) - 1),
       };
     } else {
       // Current year by default
-      const now = new Date();
+      const y = new Date().getUTCFullYear();
       dateFilter = {
-        gte: new Date(now.getFullYear(), 0, 1),
-        lte: new Date(now.getFullYear(), 11, 31, 23, 59, 59),
+        gte: new Date(Date.UTC(y, 0, 1)),
+        lte: new Date(Date.UTC(y + 1, 0, 1) - 1),
       };
     }
 
@@ -59,13 +59,13 @@ export async function GET(request: Request): Promise<Response> {
       { present: number; absent: number; late: number; total: number }
     > = {};
     for (const r of records) {
-      const key = `${r.date.getFullYear()}-${String(r.date.getMonth() + 1).padStart(2, '0')}`;
+      const key = `${r.date.getUTCFullYear()}-${String(r.date.getUTCMonth() + 1).padStart(2, '0')}`;
       if (!monthly[key])
         monthly[key] = { present: 0, absent: 0, late: 0, total: 0 };
-      monthly[key].total += 1;
-      if (r.status === 'PRESENT') monthly[key].present += 1;
-      else if (r.status === 'ABSENT') monthly[key].absent += 1;
-      else if (r.status === 'LATE') monthly[key].late += 1;
+      monthly[key].total++;
+      if (r.status === 'PRESENT') monthly[key].present++;
+      else if (r.status === 'ABSENT') monthly[key].absent++;
+      else if (r.status === 'LATE') monthly[key].late++;
     }
 
     const totalDays = records.length;

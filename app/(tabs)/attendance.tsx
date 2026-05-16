@@ -170,6 +170,7 @@ export default function AttendanceScreen() {
           ))}
 
           {Array.from({ length: leadingEmpty }).map((_, index) => (
+            // eslint-disable-next-line react/no-array-index-key
             <View key={`empty-${index}`} style={styles.dayCell} />
           ))}
 

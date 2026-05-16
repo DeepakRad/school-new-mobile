@@ -32,37 +32,6 @@ interface ProfileData {
   };
 }
 
-const settings: Array<{
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  subtitle: string;
-}> = [
-  {
-    icon: 'person-circle-outline',
-    title: 'Parent Profile',
-    subtitle: 'Manage your contact details',
-  },
-  {
-    icon: 'shield-checkmark-outline',
-    title: 'Password & Security',
-    subtitle: '2FA, biometric login and password',
-  },
-  {
-    icon: 'link-outline',
-    title: 'Linked Accounts',
-    subtitle: 'Google, Apple and Educational IDs',
-  },
-];
-
-const schoolLinks: Array<{
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-}> = [
-  { icon: 'reader-outline', title: 'School Directory' },
-  { icon: 'document-text-outline', title: 'Terms & Policies' },
-  { icon: 'help-circle-outline', title: 'Support/Help Desk' },
-];
-
 export default function ProfileScreen() {
   const router = useRouter();
   const { logout } = useAuth();
@@ -106,66 +75,19 @@ export default function ProfileScreen() {
             Grade {data.student.className}-{data.student.section}
           </Text>
 
-          <View style={styles.chipRow}>
-            <View style={styles.achievementChip}>
-              <Text style={styles.chipLabel}>ACADEMIC</Text>
-              <Text style={styles.chipValue}>EXCELLENCE</Text>
-            </View>
-            <View style={styles.achievementChip}>
-              <Text style={styles.chipLabel}>ACTIVITY</Text>
-              <Text style={styles.chipValue}>TEAM</Text>
-            </View>
-          </View>
-
           <TouchableOpacity style={styles.editButton} activeOpacity={0.85}>
             <Text style={styles.editButtonText}>Edit Profile</Text>
           </TouchableOpacity>
         </Card>
 
-        <SectionLabel title="ACCOUNT SETTINGS" />
-        <Card style={styles.groupCard}>
-          {settings.map((item, index) => (
-            <SettingsRow
-              key={item.title}
-              icon={item.icon}
-              title={item.title}
-              subtitle={item.subtitle}
-              bordered={index !== settings.length - 1}
-            />
-          ))}
-        </Card>
-
         <SectionLabel title="PREFERENCES" />
         <View style={styles.prefList}>
-          <PreferenceCard
-            title="Push Notifications"
-            subtitle="Real-time alerts for attendance"
-            value
-          />
-          <PreferenceCard
-            title="Email Alerts"
-            subtitle="Weekly progress summaries"
-            value
-          />
           <PreferenceCard
             title="Dark Mode"
             subtitle="Reduce eye strain at night"
             value={false}
           />
         </View>
-
-        <SectionLabel title="SCHOOL INFORMATION" />
-        <Card style={styles.groupCard}>
-          {schoolLinks.map((item, index) => (
-            <SettingsRow
-              key={item.title}
-              icon={item.icon}
-              title={item.title}
-              bordered={index !== schoolLinks.length - 1}
-              external
-            />
-          ))}
-        </Card>
 
         <TouchableOpacity
           style={styles.logoutButton}
@@ -185,37 +107,6 @@ export default function ProfileScreen() {
 
 function SectionLabel({ title }: { title: string }) {
   return <Text style={styles.sectionLabel}>{title}</Text>;
-}
-
-function SettingsRow({
-  icon,
-  title,
-  subtitle,
-  bordered,
-  external,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  subtitle?: string;
-  bordered?: boolean;
-  external?: boolean;
-}) {
-  return (
-    <View style={[styles.settingsRow, bordered && styles.settingsRowBordered]}>
-      <View style={styles.rowIconWrap}>
-        <Ionicons name={icon} size={18} color={palette.primary} />
-      </View>
-      <View style={styles.rowTextWrap}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
-      </View>
-      <Ionicons
-        name={external ? 'open-outline' : 'chevron-forward'}
-        size={18}
-        color={palette.textSoft}
-      />
-    </View>
-  );
 }
 
 function PreferenceCard({

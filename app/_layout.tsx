@@ -28,7 +28,6 @@ export default function RootLayout() {
             }}
           />
         </Stack>
-        {/* eslint-disable-next-line react/style-prop-object */}
         <StatusBar style="auto" />
       </AuthProvider>
     </QueryClientProvider>

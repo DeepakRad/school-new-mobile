@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention, no-underscore-dangle, import/no-mutable-exports, vars-on-top */
 import { PrismaClient } from '@prisma/client';
 
 declare global {
