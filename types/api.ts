@@ -85,3 +85,30 @@ export interface FeePaymentItem {
   method: string;
   paidAt: string;
 }
+
+export interface HomeworkItem {
+  id: string;
+  title: string;
+  description?: string | null;
+  dueDate: string;
+  dueLabel: string;
+  subject: string;
+  subjectCode: string;
+  teacherName: string;
+  teacherInitials: string;
+  statusLabel: string;
+  statusTone: 'danger' | 'mint' | 'sky';
+}
+
+export interface AcademicsResponse {
+  student: {
+    className: string;
+    section: string;
+  };
+  summary: {
+    total: number;
+    urgentCount: number;
+    dueThisWeek: number;
+  };
+  homework: HomeworkItem[];
+}

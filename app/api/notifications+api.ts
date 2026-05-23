@@ -65,23 +65,23 @@ export async function GET(request: Request): Promise<Response> {
 
     // Merge and sort
     const combined = [
-      ...notices.map((n) => ({
-        id: n.id,
+      ...notices.map((notice: (typeof notices)[number]) => ({
+        id: notice.id,
         source: 'notice' as const,
-        title: n.title,
-        body: n.description,
-        type: n.type,
-        createdAt: n.createdAt,
-        isRead: n.createdAt <= lastSeenAt,
+        title: notice.title,
+        body: notice.description,
+        type: notice.type,
+        createdAt: notice.createdAt,
+        isRead: notice.createdAt <= lastSeenAt,
       })),
-      ...broadcasts.map((b) => ({
-        id: b.id,
+      ...broadcasts.map((broadcast: (typeof broadcasts)[number]) => ({
+        id: broadcast.id,
         source: 'broadcast' as const,
-        title: b.subject,
-        body: b.content,
+        title: broadcast.subject,
+        body: broadcast.content,
         type: 'BROADCAST' as const,
-        createdAt: b.createdAt,
-        isRead: b.createdAt <= lastSeenAt,
+        createdAt: broadcast.createdAt,
+        isRead: broadcast.createdAt <= lastSeenAt,
       })),
     ]
       .sort(

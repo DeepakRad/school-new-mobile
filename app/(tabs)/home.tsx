@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { useRouter } from 'expo-router';
 import {
   RefreshControl,
   ScrollView,
@@ -45,6 +46,11 @@ interface HomeData {
     nextDueDate?: string | null;
     nextDueName?: string | null;
   };
+  homeworkSnapshot: {
+    pendingCount: number;
+    nextDueDate?: string | null;
+    urgencyLabel: string;
+  };
   notifications: Array<{
     id: string;
     title: string;
@@ -70,6 +76,7 @@ function greetingLabel() {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { data, isLoading, isError, error, refetch, isRefetching } = useQuery({
     queryKey: ['home'],
     queryFn: () => apiGet<HomeData>('/api/home'),
@@ -140,33 +147,42 @@ export default function HomeScreen() {
 
         <Card style={styles.metricCard}>
           <View style={styles.metricIconWrap}>
-            <Ionicons name="cash-outline" size={18} color={palette.primary} />
+            <Ionicons
+              name="clipboard-outline"
+              size={18}
+              color={palette.primary}
+            />
           </View>
-          {/* Need to make it to rupees and also with commas */}
-          <Text
-            style={styles.metricValue}
-          >{`₹ ${data.feeSnapshot.totalDue?.toLocaleString()}`}</Text>
-          <Text style={styles.metricLabel}>Fees Pending</Text>
+          <Text style={styles.metricValue}>{data.homeworkSnapshot.pendingCount}</Text>
+          <Text style={styles.metricLabel}>Homework Due</Text>
         </Card>
       </View>
 
-      <Card style={styles.feeCard}>
-        <View style={styles.feeIconBlock}>
-          <Ionicons name="card-outline" size={22} color={palette.primary} />
+      <Card style={styles.homeworkCard}>
+        <View style={styles.homeworkIconBlock}>
+          <Ionicons
+            name="clipboard-outline"
+            size={24}
+            color={palette.primary}
+          />
         </View>
-        <View style={styles.feeTextWrap}>
-          <Text style={styles.feeOverline}>NEXT FEE DUE</Text>
-          <Text style={styles.feeDate}>
-            {data.feeSnapshot.nextDueDate
-              ? format(new Date(data.feeSnapshot.nextDueDate), 'MMM dd, yyyy')
-              : 'No dues pending'}
+        <View style={styles.homeworkTextWrap}>
+          <Text style={styles.homeworkOverline}>HOMEWORK DUE</Text>
+          <Text style={styles.homeworkTitle}>
+            {data.homeworkSnapshot.pendingCount > 0
+              ? `${data.homeworkSnapshot.pendingCount} Pending Task${data.homeworkSnapshot.pendingCount === 1 ? '' : 's'}`
+              : 'All homework cleared'}
           </Text>
-          <Text style={styles.feeHelper}>
-            {data.feeSnapshot.nextDueName ?? 'School fee account is up to date'}
+          <Text style={styles.homeworkHelper}>
+            {data.homeworkSnapshot.urgencyLabel}
           </Text>
         </View>
-        <TouchableOpacity style={styles.payNowButton} activeOpacity={0.85}>
-          <Text style={styles.payNowText}>Pay Now</Text>
+        <TouchableOpacity
+          style={styles.viewAllButton}
+          activeOpacity={0.85}
+          onPress={() => router.push('/(tabs)/academics')}
+        >
+          <Text style={styles.viewAllText}>View All</Text>
         </TouchableOpacity>
       </Card>
 
@@ -319,48 +335,50 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 6,
   },
-  feeCard: {
+  homeworkCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     paddingVertical: 16,
   },
-  feeIconBlock: {
+  homeworkIconBlock: {
     width: 54,
     height: 54,
     borderRadius: 18,
-    backgroundColor: palette.primarySoft,
+    backgroundColor: '#DDE2FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  feeTextWrap: {
+  homeworkTextWrap: {
     flex: 1,
   },
-  feeOverline: {
+  homeworkOverline: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.textMuted,
+    color: '#555B6B',
     letterSpacing: 0.8,
   },
-  feeDate: {
-    fontSize: 26,
-    fontWeight: '700',
+  homeworkTitle: {
+    fontSize: 24,
+    fontWeight: '800',
     color: palette.text,
     marginTop: 2,
     letterSpacing: -0.7,
   },
-  feeHelper: {
+  homeworkHelper: {
     fontSize: 13,
-    color: palette.textMuted,
-    marginTop: 4,
+    color: '#C62828',
+    marginTop: 6,
+    fontWeight: '800',
+    letterSpacing: 1.2,
   },
-  payNowButton: {
+  viewAllButton: {
     backgroundColor: palette.primary,
     borderRadius: 18,
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
-  payNowText: {
+  viewAllText: {
     color: '#fff',
     fontSize: 15,
     fontWeight: '700',

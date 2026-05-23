@@ -190,6 +190,15 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
+          name="academics"
+          options={{
+            title: 'Academics',
+            tabBarIcon: ({ focused }) => (
+              <TabIcon name="school" label="Academics" focused={focused} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="calendar"
           options={{
             title: 'Calendar',

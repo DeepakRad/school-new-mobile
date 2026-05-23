@@ -88,7 +88,9 @@ export default function AlertsScreen() {
   if (isError)
     return <ErrorScreen message={(error as Error).message} onRetry={refetch} />;
 
-  const notifications = data?.notifications ?? [];
+  const notifications = Array.isArray(data?.notifications)
+    ? data.notifications
+    : [];
   const unreadCount = notifications.filter((item) => !item.isRead).length;
 
   return (

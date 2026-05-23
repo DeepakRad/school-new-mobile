@@ -70,7 +70,8 @@ export async function GET(request: Request): Promise<Response> {
 
     const totalDays = records.length;
     const presentDays = records.filter(
-      (r) => r.status === 'PRESENT' || r.status === 'LATE',
+      (record: (typeof records)[number]) =>
+        record.status === 'PRESENT' || record.status === 'LATE',
     ).length;
     const overallPct =
       totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : null;
@@ -93,11 +94,11 @@ export async function GET(request: Request): Promise<Response> {
               ? Math.round(((data.present + data.late) / data.total) * 100)
               : 0,
         })),
-      recent: records.slice(0, 30).map((r) => ({
-        id: r.id,
-        date: r.date,
-        status: r.status,
-        notes: r.notes,
+      recent: records.slice(0, 30).map((record: (typeof records)[number]) => ({
+        id: record.id,
+        date: record.date,
+        status: record.status,
+        notes: record.notes,
       })),
     });
   } catch (error) {

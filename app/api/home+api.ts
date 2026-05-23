@@ -1,6 +1,19 @@
+import { differenceInCalendarDays, isToday, isTomorrow } from 'date-fns';
+
 import { extractBearerToken, verifyToken } from '../../lib/auth';
 import { prisma } from '../../lib/prisma';
 import { jsonResponse } from '../../lib/response';
+
+function deriveHomeworkUrgency(dueDate: Date) {
+  if (isToday(dueDate)) return 'DUE TODAY';
+  if (isTomorrow(dueDate)) return 'DUE TOMORROW';
+
+  const daysUntilDue = differenceInCalendarDays(dueDate, new Date());
+  if (daysUntilDue < 0) return 'OVERDUE';
+  if (daysUntilDue <= 7) return 'DUE THIS WEEK';
+
+  return 'UPCOMING';
+}
 
 export async function GET(request: Request): Promise<Response> {
   try {
@@ -56,22 +69,47 @@ export async function GET(request: Request): Promise<Response> {
     if (!student)
       return jsonResponse({ error: 'Student not found' }, { status: 404 });
 
+    const homework = student.classId
+      ? await prisma.homework.findMany({
+          where: {
+            classId: student.classId,
+          },
+          orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+          take: 20,
+        })
+      : [];
+
     const totalDays = recentAttendance.length;
     const presentDays = recentAttendance.filter(
-      (a) => a.status === 'PRESENT' || a.status === 'LATE',
+      (record: (typeof recentAttendance)[number]) =>
+        record.status === 'PRESENT' || record.status === 'LATE',
     ).length;
     const attendancePct =
       totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : null;
 
     const pendingFees = fees.filter(
-      (f) => f.status === 'PENDING' || f.status === 'OVERDUE',
+      (fee: (typeof fees)[number]) =>
+        fee.status === 'PENDING' || fee.status === 'OVERDUE',
     );
-    const totalDue = pendingFees.reduce((sum, f) => sum + f.amount, 0);
+    const totalDue = pendingFees.reduce(
+      (sum: number, fee: (typeof pendingFees)[number]) => sum + fee.amount,
+      0,
+    );
     const nextFee = pendingFees
       .slice()
-      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())[0];
+      .sort(
+        (
+          left: (typeof pendingFees)[number],
+          right: (typeof pendingFees)[number],
+        ) => left.dueDate.getTime() - right.dueDate.getTime(),
+      )[0];
 
     const threshold = settings?.dailyThreshold ?? 85;
+    const now = new Date();
+    const pendingHomework = homework.filter(
+      (item: (typeof homework)[number]) => item.dueDate >= now,
+    );
+    const nextHomework = pendingHomework[0] ?? homework[0] ?? null;
 
     return jsonResponse({
       student: {
@@ -98,7 +136,14 @@ export async function GET(request: Request): Promise<Response> {
         nextDueDate: nextFee?.dueDate ?? null,
         nextDueName: nextFee?.feeType.name ?? null,
       },
-      notifications: notices.map((notice) => ({
+      homeworkSnapshot: {
+        pendingCount: pendingHomework.length,
+        nextDueDate: nextHomework?.dueDate ?? null,
+        urgencyLabel: nextHomework
+          ? deriveHomeworkUrgency(nextHomework.dueDate)
+          : 'ALL CAUGHT UP',
+      },
+      notifications: notices.map((notice: (typeof notices)[number]) => ({
         id: notice.id,
         title: notice.title,
         body: notice.description,

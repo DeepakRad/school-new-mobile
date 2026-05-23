@@ -25,27 +25,33 @@ export async function GET(request: Request): Promise<Response> {
     });
 
     const totalDue = fees
-      .filter((f) => f.status === 'PENDING' || f.status === 'OVERDUE')
-      .reduce((sum, f) => sum + f.amount, 0);
-    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+      .filter(
+        (fee: (typeof fees)[number]) =>
+          fee.status === 'PENDING' || fee.status === 'OVERDUE',
+      )
+      .reduce((sum: number, fee: (typeof fees)[number]) => sum + fee.amount, 0);
+    const totalPaid = payments.reduce(
+      (sum: number, payment: (typeof payments)[number]) => sum + payment.amount,
+      0,
+    );
 
     return jsonResponse({
       summary: { totalDue, totalPaid },
-      fees: fees.map((f) => ({
-        id: f.id,
-        name: f.feeType.name,
-        amount: f.amount,
-        dueDate: f.dueDate,
-        status: f.status,
-        frequency: f.feeType.frequency,
+      fees: fees.map((fee: (typeof fees)[number]) => ({
+        id: fee.id,
+        name: fee.feeType.name,
+        amount: fee.amount,
+        dueDate: fee.dueDate,
+        status: fee.status,
+        frequency: fee.feeType.frequency,
       })),
-      payments: payments.map((p) => ({
-        id: p.id,
-        receiptNo: p.receiptNo,
-        name: p.feeType.name,
-        amount: p.amount,
-        method: p.paymentMethod,
-        paidAt: p.paidAt,
+      payments: payments.map((payment: (typeof payments)[number]) => ({
+        id: payment.id,
+        receiptNo: payment.receiptNo,
+        name: payment.feeType.name,
+        amount: payment.amount,
+        method: payment.paymentMethod,
+        paidAt: payment.paidAt,
       })),
     });
   } catch (error) {

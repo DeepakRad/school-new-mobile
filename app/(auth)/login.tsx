@@ -141,11 +141,6 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>Sign In</Text>
             )}
           </TouchableOpacity>
-
-          <Text style={styles.hint}>
-            Sign in using the registered parent phone number. Default password:
-            mips@ + last 4 digits of phone
-          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
