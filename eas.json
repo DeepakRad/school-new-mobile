@@ -6,16 +6,12 @@
     "preview": {
       "developmentClient": false,
       "distribution": "internal",
+      "channel": "preview",
       "android": {
         "buildType": "apk"
       },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://school-new-mobile.vercel.app"
-      }
-    },
-    "production": {
-      "android": {
-        "buildType": "app-bundle"
       }
     }
   }

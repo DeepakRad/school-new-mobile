@@ -12,6 +12,10 @@
     "check-types": "tsc --noEmit --pretty",
     "lint": "eslint . --ext .ts,.tsx",
     "doctor": "npx expo-doctor",
+    "deploy:vercel": "npx vercel --prod",
+    "deploy:expo:preview:ios": "eas build --platform ios --profile preview",
+    "deploy:expo:preview:apk": "eas build --platform android --profile preview",
+    "deploy:expo:update": "EXPO_PUBLIC_API_BASE_URL=https://school-new-mobile.vercel.app eas update --channel preview",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -30,6 +34,7 @@
     "expo-secure-store": "~13.0.2",
     "expo-splash-screen": "~0.27.5",
     "expo-status-bar": "~1.12.1",
+    "expo-updates": "~0.25.28",
     "jose": "^5.9.3",
     "react": "18.2.0",
     "react-hook-form": "^7.53.0",

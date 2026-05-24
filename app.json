@@ -12,9 +12,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.school.mobile"
@@ -26,23 +24,21 @@
       },
       "package": "com.school.mobile"
     },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a3b7e079-6764-47fb-8174-e5ae2ab6347a"
+    },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "server"
     },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-font"
-    ],
+    "plugins": ["expo-router", "expo-secure-store", "expo-font"],
     "experiments": {
       "typedRoutes": true,
-      "serverComponentsExternalPackages": [
-        "@prisma/client",
-        "bcryptjs",
-        "jose"
-      ]
+      "serverComponentsExternalPackages": ["@prisma/client", "bcryptjs", "jose"]
     },
     "extra": {
       "router": {

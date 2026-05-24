@@ -1,4 +1,4 @@
-import { jsonResponse } from './response.js';
+import { jsonResponse } from './response';
 
 export function withCors(response: Response): Response {
   response.headers.set('Access-Control-Allow-Origin', '*');

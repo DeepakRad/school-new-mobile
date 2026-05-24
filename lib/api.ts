@@ -1,8 +1,21 @@
 import { getToken } from './storage';
 
-// In development, use the local server. In production, update to your deployed URL.
-const BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8081';
+const DEV_BASE_URL = 'http://localhost:8081';
+const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+function resolveBaseUrl() {
+  if (BASE_URL) {
+    return BASE_URL;
+  }
+
+  if (__DEV__) {
+    return DEV_BASE_URL;
+  }
+
+  throw new Error(
+    'EXPO_PUBLIC_API_BASE_URL is not configured for this build.',
+  );
+}
 
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getToken();
@@ -25,7 +38,7 @@ async function parseJsonResponse(res: Response): Promise<unknown> {
 
 export async function apiGet<T>(path: string): Promise<T> {
   const headers = await authHeaders();
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${resolveBaseUrl()}${path}`, {
     headers: { 'Content-Type': 'application/json', ...headers },
   });
   const data = await parseJsonResponse(res);
@@ -39,7 +52,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const headers = await authHeaders();
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${resolveBaseUrl()}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),

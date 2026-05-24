@@ -147,14 +147,13 @@ export default function HomeScreen() {
 
         <Card style={styles.metricCard}>
           <View style={styles.metricIconWrap}>
-            <Ionicons
-              name="clipboard-outline"
-              size={18}
-              color={palette.primary}
-            />
+            <Ionicons name="cash-outline" size={18} color={palette.primary} />
           </View>
-          <Text style={styles.metricValue}>{data.homeworkSnapshot.pendingCount}</Text>
-          <Text style={styles.metricLabel}>Homework Due</Text>
+          {/* Need to make it to rupees and also with commas */}
+          <Text
+            style={styles.metricValue}
+          >{`₹ ${data.feeSnapshot.totalDue?.toLocaleString()}`}</Text>
+          <Text style={styles.metricLabel}>Fees Pending</Text>
         </Card>
       </View>
 

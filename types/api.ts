@@ -100,6 +100,29 @@ export interface HomeworkItem {
   statusTone: 'danger' | 'mint' | 'sky';
 }
 
+export interface DailyInsightSlot {
+  id: string;
+  day: string;
+  period: number;
+  subject: string;
+  subjectCode: string;
+  teacherName: string;
+  teacherInitials: string;
+  room?: string | null;
+}
+
+export interface SubjectGradeItem {
+  id: string;
+  subject: string;
+  subjectCode: string;
+  averagePercentage: number;
+  averageMarks: number;
+  totalMaxMarks: number;
+  grade: string;
+  statusLabel: string;
+  statusTone: 'excellent' | 'improving' | 'steady' | 'attention';
+}
+
 export interface AcademicsResponse {
   student: {
     className: string;
@@ -109,6 +132,17 @@ export interface AcademicsResponse {
     total: number;
     urgentCount: number;
     dueThisWeek: number;
+  };
+  dailyInsight: {
+    days: string[];
+    slots: DailyInsightSlot[];
+  };
+  grades: {
+    overallPercentage: number;
+    examCycleName: string | null;
+    totalSubjects: number;
+    completedAssessments: number;
+    subjectPerformance: SubjectGradeItem[];
   };
   homework: HomeworkItem[];
 }
