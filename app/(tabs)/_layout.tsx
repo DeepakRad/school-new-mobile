@@ -22,43 +22,46 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 18,
-    height: 78,
-    borderTopWidth: 0,
-    borderRadius: 26,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 82,
+    borderTopWidth: 1,
+    borderTopColor: '#E7EAF4',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 10,
     shadowColor: '#172554',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 22,
-    elevation: 12,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 10,
   },
   tabBarItem: {
     paddingVertical: 0,
   },
   tabItem: {
-    minWidth: 72,
-    height: 52,
-    borderRadius: 18,
+    minWidth: 66,
+    height: 62,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
   },
   tabItemActive: {
-    backgroundColor: palette.primary,
+    backgroundColor: '#F4F6FB',
+    borderWidth: 1,
+    borderColor: '#E5EAF5',
   },
   tabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 8,
+    fontWeight: '700',
     color: palette.textMuted,
+    textTransform: 'uppercase',
   },
   tabLabelActive: {
-    color: '#fff',
+    color: palette.primary,
   },
   headerButton: {
     width: 40,
@@ -100,8 +103,8 @@ function TabIcon({
     <View style={[styles.tabItem, focused && styles.tabItemActive]}>
       <Ionicons
         name={name}
-        size={18}
-        color={focused ? '#fff' : palette.textMuted}
+        size={22}
+        color={focused ? palette.primary : '#A4AEC3'}
       />
       <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
         {label}
@@ -150,7 +153,13 @@ export default function TabsLayout() {
         screenOptions={{
           headerShown: false,
           tabBarShowLabel: false,
-          tabBarStyle: styles.tabBar,
+          tabBarStyle: [
+            styles.tabBar,
+            {
+              height: 82 + insets.bottom,
+              paddingBottom: Math.max(insets.bottom, 10),
+            },
+          ],
           tabBarItemStyle: styles.tabBarItem,
           tabBarHideOnKeyboard: true,
         }}
@@ -181,11 +190,7 @@ export default function TabsLayout() {
           options={{
             title: 'Attendance',
             tabBarIcon: ({ focused }) => (
-              <TabIcon
-                name="calendar-clear"
-                label="Attendance"
-                focused={focused}
-              />
+              <TabIcon name="list" label="Attendance" focused={focused} />
             ),
           }}
         />
@@ -204,7 +209,7 @@ export default function TabsLayout() {
             title: 'Calendar',
             tabBarIcon: ({ focused }) => (
               <TabIcon
-                name="wallet-outline"
+                name="calendar-outline"
                 label="Calendar"
                 focused={focused}
               />

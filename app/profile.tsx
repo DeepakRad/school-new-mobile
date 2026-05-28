@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import {
   SafeAreaView,
@@ -13,6 +14,7 @@ import {
 
 import { Card, ErrorScreen, LoadingScreen, palette } from '../components/ui';
 import { useAuth } from '../hooks/useAuth';
+import { useThemePreference } from '../hooks/useThemePreference';
 import { apiGet } from '../lib/api';
 
 interface ProfileData {
@@ -25,16 +27,32 @@ interface ProfileData {
     lastName: string;
     className: string;
     section: string;
+    admissionDate?: string | null;
+    currentAddress?: string | null;
   };
   parent: {
     phone?: string | null;
     username?: string | null;
   };
+  institution?: {
+    name?: string | null;
+    logo?: string | null;
+    address?: string | null;
+    officialEmail?: string | null;
+    academicYear?: string | null;
+  };
+}
+
+function buildFullName(student: ProfileData['student']) {
+  return [student.firstName, student.middleName, student.lastName]
+    .filter(Boolean)
+    .join(' ');
 }
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { logout } = useAuth();
+  const { isDark, toggleTheme } = useThemePreference();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['profile'],
@@ -45,57 +63,139 @@ export default function ProfileScreen() {
   if (isError) return <ErrorScreen message={(error as Error).message} />;
   if (!data) return null;
 
+  const studentName = buildFullName(data.student);
+  const themeColors = isDark
+    ? {
+        page: '#0F1428',
+        panel: '#171E37',
+        card: '#1D2542',
+        hero: '#202B58',
+        text: '#F6F7FB',
+        muted: '#AEB8D6',
+        label: '#C4CBE0',
+        border: 'rgba(255,255,255,0.12)',
+        topButton: '#1F294B',
+      }
+    : {
+        page: '#F6F7FB',
+        panel: '#e8ecf3',
+        card: '#e8ecf3',
+        hero: '#2A356B',
+        text: '#1C233B',
+        muted: '#8D95B2',
+        label: '#4B4F5C',
+        border: '#D3D8E4',
+        topButton: '#FFFFFF',
+      };
+
+  const studentInfoRows = [
+    { label: 'ADMISSION NO', value: data.student.admissionNo || '--' },
+    { label: 'ACADEMIC YEAR', value: data.institution?.academicYear || '--' },
+    {
+      label: 'CLASS & SECTION',
+      value: `${data.student.className}, ${data.student.section}`,
+    },
+    { label: 'INSTITUTION', value: data.institution?.name || '--' },
+  ];
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: themeColors.hero }]}
+    >
       <ScrollView
+        style={[styles.page, { backgroundColor: themeColors.page }]}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topBar}>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={styles.topIconButton}
+            style={[
+              styles.topIconButton,
+              { backgroundColor: themeColors.topButton },
+            ]}
           >
-            <Ionicons name="arrow-back" size={20} color={palette.text} />
+            <Ionicons name="arrow-back" size={20} color={themeColors.text} />
           </TouchableOpacity>
-          <Text style={styles.topTitle}>Profile</Text>
-          <TouchableOpacity style={styles.topIconButton}>
-            <Ionicons name="settings-outline" size={20} color={palette.text} />
-          </TouchableOpacity>
+          <Text style={[styles.topTitle, { color: themeColors.text }]}>
+            Profile
+          </Text>
         </View>
 
-        <Card style={styles.heroCard}>
-          <View style={styles.avatarFrame}>
-            <Ionicons name="person" size={42} color="#fff" />
+        <View style={[styles.heroCard, { backgroundColor: themeColors.hero }]}>
+          <View style={styles.heroGlow} />
+          <View style={styles.avatarShell}>
+            <Ionicons name="person" size={46} color="#FFFFFF" />
           </View>
-          <Text style={styles.name}>
-            {data.student.firstName} {data.student.lastName}
-          </Text>
+
+          <Text style={styles.name}>{studentName}</Text>
           <Text style={styles.grade}>
-            Grade {data.student.className}-{data.student.section}
+            Class {data.student.className} • {data.student.section}
           </Text>
 
-          <TouchableOpacity style={styles.editButton} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.editButton} activeOpacity={0.88}>
             <Text style={styles.editButtonText}>Edit Profile</Text>
           </TouchableOpacity>
-        </Card>
-
-        <SectionLabel title="PREFERENCES" />
-        <View style={styles.prefList}>
-          <PreferenceCard
-            title="Dark Mode"
-            subtitle="Reduce eye strain at night"
-            value={false}
-          />
         </View>
 
+        <Text style={[styles.sectionHeading, { color: themeColors.label }]}>
+          STUDENT INFORMATION
+        </Text>
+
+        <Card style={[styles.infoCard, { backgroundColor: themeColors.card }]}>
+          {studentInfoRows.map((item) => (
+            <View key={item.label} style={styles.infoBlock}>
+              <Text style={[styles.infoLabel, { color: themeColors.label }]}>
+                {item.label}
+              </Text>
+              <Text style={[styles.infoValue, { color: themeColors.text }]}>
+                {item.value}
+              </Text>
+            </View>
+          ))}
+        </Card>
+
+        <Text style={[styles.sectionHeading, { color: themeColors.label }]}>
+          PREFERENCES
+        </Text>
+
+        <Card
+          style={[
+            styles.preferenceCard,
+            { backgroundColor: themeColors.panel },
+          ]}
+        >
+          <View style={styles.preferenceHeader}>
+            <View>
+              <Text
+                style={[styles.preferenceTitle, { color: themeColors.text }]}
+              >
+                Dark Mode
+              </Text>
+              <Text
+                style={[
+                  styles.preferenceSubtitle,
+                  { color: themeColors.muted },
+                ]}
+              >
+                Switch profile screens to a darker appearance
+              </Text>
+            </View>
+            <Switch
+              value={isDark}
+              trackColor={{ false: '#D8DCEA', true: '#1F2B63' }}
+              thumbColor="#FFFFFF"
+              onValueChange={toggleTheme}
+            />
+          </View>
+        </Card>
         <TouchableOpacity
           style={styles.logoutButton}
           onPress={async () => {
             await logout();
             router.replace('/(auth)/login');
           }}
-          activeOpacity={0.85}
+          activeOpacity={0.9}
         >
           <Ionicons name="log-out-outline" size={18} color={palette.danger} />
           <Text style={styles.logoutText}>Logout</Text>
@@ -105,189 +205,163 @@ export default function ProfileScreen() {
   );
 }
 
-function SectionLabel({ title }: { title: string }) {
-  return <Text style={styles.sectionLabel}>{title}</Text>;
-}
-
-function PreferenceCard({
-  title,
-  subtitle,
-  value,
-}: {
-  title: string;
-  subtitle: string;
-  value: boolean;
-}) {
-  return (
-    <Card style={styles.preferenceCard}>
-      <View style={styles.prefHeader}>
-        <View style={styles.rowIconWrap}>
-          <Ionicons
-            name="notifications-outline"
-            size={18}
-            color={palette.primary}
-          />
-        </View>
-        <Switch
-          value={value}
-          trackColor={{ false: '#D8DCEA', true: '#1F2B63' }}
-          thumbColor="#fff"
-          onValueChange={() => {}}
-        />
-      </View>
-      <Text style={styles.rowTitle}>{title}</Text>
-      <Text style={styles.rowSubtitle}>{subtitle}</Text>
-    </Card>
-  );
-}
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#6B5BFF',
+  },
+  page: {
+    flex: 1,
   },
   content: {
-    backgroundColor: palette.background,
-    minHeight: '100%',
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 16,
     paddingBottom: 48,
     gap: 18,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 24,
   },
   topIconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#fff',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   topTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: palette.text,
+    fontWeight: '800',
   },
   heroCard: {
+    overflow: 'hidden',
     alignItems: 'center',
-    backgroundColor: '#2A356B',
-    paddingVertical: 28,
-    borderRadius: 30,
+    borderRadius: 34,
+    paddingTop: 26,
+    paddingBottom: 32,
+    marginTop: 4,
   },
-  avatarFrame: {
-    width: 92,
-    height: 92,
-    borderRadius: 28,
-    backgroundColor: '#1A2247',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.15)',
+  heroGlow: {
+    position: 'absolute',
+    left: -22,
+    bottom: -40,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  avatarShell: {
+    width: 102,
+    height: 102,
+    borderRadius: 51,
+    backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   name: {
     marginTop: 18,
     fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   grade: {
     marginTop: 6,
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: '600',
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 18,
-  },
-  achievementChip: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    minWidth: 124,
-    alignItems: 'center',
-  },
-  chipLabel: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.6)',
-    fontWeight: '700',
-  },
-  chipValue: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#fff',
+    color: 'rgba(255,255,255,0.62)',
     fontWeight: '700',
   },
   editButton: {
-    marginTop: 18,
-    backgroundColor: '#fff',
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 16,
+    marginTop: 24,
+    backgroundColor: '#FFFFFF',
+    minWidth: 210,
+    paddingVertical: 16,
+    borderRadius: 20,
+    alignItems: 'center',
   },
   editButtonText: {
-    color: palette.text,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  sectionLabel: {
-    fontSize: 12,
+    color: '#1F2B63',
+    fontSize: 16,
     fontWeight: '800',
-    color: palette.textSoft,
+  },
+  sectionHeading: {
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    paddingTop: 24,
+  },
+  infoCard: {
+    borderRadius: 30,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+  },
+  infoBlock: {
+    marginBottom: 22,
+  },
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: '900',
     letterSpacing: 1,
   },
-  groupCard: {
-    paddingVertical: 4,
+  infoValue: {
+    marginTop: 10,
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: '800',
   },
-  settingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
+  divider: {
+    height: 1,
+    marginBottom: 22,
   },
-  settingsRowBordered: {
-    borderBottomWidth: 1,
-    borderBottomColor: palette.border,
-  },
-  rowIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 16,
-    backgroundColor: palette.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  rowTextWrap: {
-    flex: 1,
-  },
-  rowTitle: {
+  infoAddress: {
+    marginTop: 10,
     fontSize: 18,
-    fontWeight: '700',
-    color: palette.text,
-  },
-  rowSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: palette.textMuted,
-    lineHeight: 18,
-  },
-  prefList: {
-    gap: 12,
+    lineHeight: 28,
+    fontWeight: '500',
   },
   preferenceCard: {
     borderRadius: 24,
   },
-  prefHeader: {
+  preferenceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    gap: 16,
+  },
+  preferenceTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  preferenceSubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 20,
+    maxWidth: 220,
+  },
+  metaCard: {
+    borderRadius: 24,
+    gap: 6,
+  },
+  metaLabel: {
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  metaValue: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  metaHint: {
+    fontSize: 13,
+    lineHeight: 19,
   },
   logoutButton: {
     marginTop: 8,
@@ -302,6 +376,6 @@ const styles = StyleSheet.create({
   logoutText: {
     color: palette.danger,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });

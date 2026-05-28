@@ -103,11 +103,19 @@ export interface HomeworkItem {
 export interface DailyInsightSlot {
   id: string;
   day: string;
-  period: number;
-  subject: string;
-  subjectCode: string;
-  teacherName: string;
-  teacherInitials: string;
+  type: 'class' | 'break' | 'lunch';
+  period?: number;
+  title: string;
+  subtitle: string;
+  badge: string;
+  location: string;
+  startTime: string;
+  endTime: string;
+  timeLabel: string;
+  subject?: string;
+  subjectCode?: string;
+  teacherName?: string;
+  teacherInitials?: string;
   room?: string | null;
 }
 

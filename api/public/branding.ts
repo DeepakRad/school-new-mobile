@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-import { handleNotifications } from '../backend/lib/handlers.js';
+import { handlePublicBranding } from '../../backend/lib/handlers.js';
 import {
   methodNotAllowedResponse,
   optionsWebResponse,
   sendWebResponse,
   toWebRequest,
-} from '../backend/lib/vercel.js';
+} from '../../backend/lib/vercel.js';
 
 export default async function handler(
   req: IncomingMessage,
@@ -30,6 +30,6 @@ export default async function handler(
 
   await sendWebResponse(
     res as ServerResponse & { send: (body: string) => void },
-    await handleNotifications(request),
+    await handlePublicBranding(),
   );
 }

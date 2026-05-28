@@ -77,6 +77,32 @@ function deriveGradeTone(percentage: number) {
   return { label: 'NEEDS FOCUS', tone: 'attention' as const };
 }
 
+const dailyInsightTimeline = [
+  { period: 1, startTime: '08:00', endTime: '09:00', type: 'class' as const },
+  { period: 2, startTime: '09:00', endTime: '10:00', type: 'class' as const },
+  { startTime: '10:00', endTime: '10:15', type: 'break' as const },
+  { period: 3, startTime: '10:15', endTime: '11:15', type: 'class' as const },
+  { period: 4, startTime: '11:15', endTime: '12:15', type: 'class' as const },
+  { startTime: '12:15', endTime: '13:00', type: 'lunch' as const },
+  { period: 5, startTime: '13:00', endTime: '14:00', type: 'class' as const },
+  { period: 6, startTime: '14:00', endTime: '15:00', type: 'class' as const },
+];
+
+function formatTimeLabel(startTime: string, endTime: string) {
+  return `${startTime} - ${endTime}`;
+}
+
+function buildDisplayLocation(
+  room: string | null,
+  className: string,
+  section: string,
+) {
+  if (room) return room;
+
+  const classLabel = [className, section].filter(Boolean).join(' ');
+  return classLabel || 'Classroom';
+}
+
 export async function GET(request: Request): Promise<Response> {
   try {
     const token = extractBearerToken(request.headers.get('Authorization'));
@@ -228,29 +254,77 @@ export async function GET(request: Request): Promise<Response> {
       'Friday',
       'Saturday',
     ];
-    const dailyInsightSlots: Array<{
-      id: string;
-      day: string;
-      period: number;
-      subject: string;
-      subjectCode: string;
-      teacherName: string;
-      teacherInitials: string;
-      room: string | null;
-    }> = timetableSlots.map((item: (typeof timetableSlots)[number]) => {
-      const teacherName =
-        `${item.Staff.firstName} ${item.Staff.lastName}`.trim();
+    const timetableByDay = new Map(
+      dayOrder.map((day) => [day, new Map<number, (typeof timetableSlots)[number]>()]),
+    );
 
-      return {
-        id: item.id,
-        day: item.day,
-        period: item.period,
-        subject: item.Subject.name,
-        subjectCode: item.Subject.code,
-        teacherName,
-        teacherInitials: getInitials(teacherName),
-        room: item.Class.room,
-      };
+    for (const slot of timetableSlots) {
+      timetableByDay.get(slot.day)?.set(slot.period, slot);
+    }
+
+    const dailyInsightSlots = dayOrder.flatMap((day) => {
+      const slotsForDay = timetableByDay.get(day);
+      if (!slotsForDay || slotsForDay.size === 0) return [];
+
+      return dailyInsightTimeline.flatMap((timelineItem, index) => {
+        if (timelineItem.type === 'break') {
+          return {
+            id: `${day}-break-${index}`,
+            day,
+            type: 'break' as const,
+            title: 'Recess Break',
+            subtitle: formatTimeLabel(timelineItem.startTime, timelineItem.endTime),
+            badge: 'BREAK',
+            location: 'RECHARGE',
+            startTime: timelineItem.startTime,
+            endTime: timelineItem.endTime,
+            timeLabel: formatTimeLabel(timelineItem.startTime, timelineItem.endTime),
+          };
+        }
+
+        if (timelineItem.type === 'lunch') {
+          return {
+            id: `${day}-lunch-${index}`,
+            day,
+            type: 'lunch' as const,
+            title: 'Lunch Break',
+            subtitle: formatTimeLabel(timelineItem.startTime, timelineItem.endTime),
+            badge: 'BREAK',
+            location: 'CAFETERIA',
+            startTime: timelineItem.startTime,
+            endTime: timelineItem.endTime,
+            timeLabel: formatTimeLabel(timelineItem.startTime, timelineItem.endTime),
+          };
+        }
+
+        const slot = slotsForDay.get(timelineItem.period);
+        if (!slot) return [];
+
+        const teacherName = `${slot.Staff.firstName} ${slot.Staff.lastName}`.trim();
+
+        return {
+          id: slot.id,
+          day,
+          type: 'class' as const,
+          period: slot.period,
+          title: slot.Subject.name,
+          subtitle: teacherName,
+          badge: slot.Subject.code,
+          location: buildDisplayLocation(
+            slot.Class.room,
+            resolvedClassName,
+            resolvedSection,
+          ),
+          startTime: timelineItem.startTime,
+          endTime: timelineItem.endTime,
+          timeLabel: formatTimeLabel(timelineItem.startTime, timelineItem.endTime),
+          subject: slot.Subject.name,
+          subjectCode: slot.Subject.code,
+          teacherName,
+          teacherInitials: getInitials(teacherName),
+          room: slot.Class.room,
+        };
+      });
     });
 
     const dailyInsightDays = Array.from(

@@ -4,6 +4,12 @@ import { extractBearerToken, verifyToken } from '../../lib/auth';
 import { prisma } from '../../lib/prisma';
 import { jsonResponse } from '../../lib/response';
 
+type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'LEAVE';
+
+function countsAsPresent(status: AttendanceStatus) {
+  return status === 'PRESENT' || status === 'LATE';
+}
+
 function deriveHomeworkUrgency(dueDate: Date) {
   if (isToday(dueDate)) return 'DUE TODAY';
   if (isTomorrow(dueDate)) return 'DUE TOMORROW';
@@ -24,7 +30,7 @@ export async function GET(request: Request): Promise<Response> {
     if (!payload)
       return jsonResponse({ error: 'Invalid token' }, { status: 401 });
 
-    const [student, settings, recentAttendance, fees, upcomingEvents, notices] =
+    const [student, settings, attendanceRecords, fees, upcomingEvents, notices] =
       await Promise.all([
         prisma.student.findUnique({
           where: { id: payload.studentId },
@@ -36,7 +42,6 @@ export async function GET(request: Request): Promise<Response> {
         prisma.attendance.findMany({
           where: { studentId: payload.studentId },
           orderBy: { date: 'desc' },
-          take: 30,
         }),
         prisma.studentFee.findMany({
           where: { studentId: payload.studentId },
@@ -79,10 +84,10 @@ export async function GET(request: Request): Promise<Response> {
         })
       : [];
 
-    const totalDays = recentAttendance.length;
-    const presentDays = recentAttendance.filter(
-      (record: (typeof recentAttendance)[number]) =>
-        record.status === 'PRESENT' || record.status === 'LATE',
+    const totalDays = attendanceRecords.length;
+    const presentDays = attendanceRecords.filter(
+      (record: (typeof attendanceRecords)[number]) =>
+        countsAsPresent(record.status),
     ).length;
     const attendancePct =
       totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : null;
@@ -123,10 +128,10 @@ export async function GET(request: Request): Promise<Response> {
         feeStatus: student.feeStatus,
       },
       attendanceSnapshot: {
-        percentage: student.attendance ?? attendancePct,
+        percentage: attendancePct,
         presentDays,
         totalDays,
-        isLow: (student.attendance ?? attendancePct ?? 100) < threshold,
+        isLow: (attendancePct ?? 100) < threshold,
         threshold,
       },
       feeSnapshot: {

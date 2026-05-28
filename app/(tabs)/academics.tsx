@@ -17,7 +17,6 @@ import {
   ErrorScreen,
   LoadingScreen,
   palette,
-  ScreenHeader,
   SectionTitle,
 } from '../../components/ui';
 import { apiGet } from '../../lib/api';
@@ -81,12 +80,75 @@ const gradeToneStyles = {
   },
 };
 
+const scheduleCardVariants = {
+  class: {
+    badgeBackground: '#E8EEFF',
+    badgeText: '#2B58D9',
+    locationBackground: '#F5F7FC',
+    locationText: '#64748B',
+    title: palette.text,
+    subtitle: '#6B7696',
+    borderStyle: 'solid' as const,
+    borderColor: 'transparent',
+    cardBackground: '#FFFFFF',
+    time: palette.primary,
+    iconBackground: '#EDF2FF',
+    iconColor: palette.primary,
+  },
+  break: {
+    badgeBackground: '#EEF2FF',
+    badgeText: '#6366F1',
+    locationBackground: 'transparent',
+    locationText: '#6D78F4',
+    title: '#3B3F98',
+    subtitle: '#6D78F4',
+    borderStyle: 'dashed' as const,
+    borderColor: '#B8C7FF',
+    cardBackground: '#F5F7FF',
+    time: '#6D78F4',
+    iconBackground: '#FFFFFF',
+    iconColor: '#6366F1',
+  },
+  lunch: {
+    badgeBackground: '#FFF3D6',
+    badgeText: '#E07A00',
+    locationBackground: 'transparent',
+    locationText: '#F08A00',
+    title: '#8B4513',
+    subtitle: '#C9723D',
+    borderStyle: 'dashed' as const,
+    borderColor: '#F6D16F',
+    cardBackground: '#FFF9EB',
+    time: '#C9723D',
+    iconBackground: '#FFFFFF',
+    iconColor: '#D97706',
+  },
+};
+
 const subjectIcons = [
   'calculator-outline',
   'flask-outline',
   'book-outline',
   'library-outline',
 ] as const;
+
+function formatTimelineRail(time: string) {
+  const [hourText, minute] = time.split(':');
+  const hour = Number(hourText);
+  const meridiem = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+
+  return {
+    value: `${displayHour.toString().padStart(2, '0')}:${minute}`,
+    meridiem,
+  };
+}
+
+function getScheduleIcon(type: 'class' | 'break' | 'lunch') {
+  if (type === 'break') return 'cafe-outline';
+  if (type === 'lunch') return 'restaurant-outline';
+  return 'school-outline';
+}
 
 export default function AcademicsScreen() {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>('Homework');
@@ -119,7 +181,7 @@ export default function AcademicsScreen() {
       ? timetableSlots.filter((item) => item.day === activeDay)
       : timetableSlots;
 
-    return [...slots].sort((a, b) => a.period - b.period);
+    return [...slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
   }, [activeDay, timetableSlots]);
 
   if (isLoading) return <LoadingScreen />;
@@ -142,15 +204,6 @@ export default function AcademicsScreen() {
       }
       showsVerticalScrollIndicator={false}
     >
-      <ScreenHeader
-        title="Academics"
-        subtitle={
-          data
-            ? `Grade ${data.student.className}${data.student.section ? ` • Section ${data.student.section}` : ''}`
-            : 'Track class homework, schedule, and grades.'
-        }
-      />
-
       <View style={styles.tabsWrap}>
         {tabs.map((tab) => {
           const isActive = tab === activeTab;
@@ -171,34 +224,6 @@ export default function AcademicsScreen() {
 
       {activeTab === 'Homework' ? (
         <>
-          <View style={styles.metricsRow}>
-            <Card style={styles.metricCard}>
-              <Text style={styles.metricLabel}>TOTAL TASKS</Text>
-              <Text style={styles.metricValue}>{data?.summary.total ?? 0}</Text>
-            </Card>
-            <Card style={styles.metricCard}>
-              <Text style={styles.metricLabel}>DUE THIS WEEK</Text>
-              <Text style={styles.metricValue}>
-                {data?.summary.dueThisWeek ?? 0}
-              </Text>
-            </Card>
-            <Card style={styles.metricCard}>
-              <Text style={styles.metricLabel}>URGENT</Text>
-              <Text style={styles.metricValue}>
-                {data?.summary.urgentCount ?? 0}
-              </Text>
-            </Card>
-          </View>
-
-          <SectionTitle
-            title="Assignments"
-            trailing={
-              homework.length > 0 ? (
-                <Text style={styles.trailingText}>{homework.length} LIVE</Text>
-              ) : null
-            }
-          />
-
           {homework.length === 0 ? (
             <EmptyScreen
               message="No homework has been assigned for this class yet."
@@ -334,7 +359,9 @@ export default function AcademicsScreen() {
                       ]}
                     >
                       {(
-                        timetableSlots.filter((item) => item.day === day)
+                        timetableSlots.filter(
+                          (item) => item.day === day && item.type === 'class',
+                        )
                           .length ?? 0
                       )
                         .toString()
@@ -353,45 +380,110 @@ export default function AcademicsScreen() {
             />
           ) : (
             <View style={styles.scheduleStack}>
-              {activeDaySlots.map((item) => (
-                <View key={item.id} style={styles.scheduleRow}>
-                  <View style={styles.periodRail}>
-                    <Text style={styles.periodLabel}>PERIOD</Text>
-                    <Text style={styles.periodValue}>{item.period}</Text>
+              {activeDaySlots.map((item) => {
+                const variant = scheduleCardVariants[item.type];
+                const rail = formatTimelineRail(item.startTime);
+                const isClass = item.type === 'class';
+
+                return (
+                  <View key={item.id} style={styles.scheduleRow}>
+                    <View style={styles.periodRail}>
+                      <Text style={styles.timeValue}>{rail.value}</Text>
+                      <Text style={styles.timeMeridiem}>{rail.meridiem}</Text>
+                    </View>
+
+                    <Card
+                      style={[
+                        styles.scheduleCard,
+                        {
+                          backgroundColor: variant.cardBackground,
+                          borderWidth: isClass ? 0 : 2,
+                          borderColor: variant.borderColor,
+                          borderStyle: variant.borderStyle,
+                        },
+                      ]}
+                    >
+                      <View style={styles.scheduleTopRow}>
+                        <View
+                          style={[
+                            styles.scheduleBadge,
+                            { backgroundColor: variant.badgeBackground },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.scheduleBadgeText,
+                              { color: variant.badgeText },
+                            ]}
+                          >
+                            {item.badge}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.scheduleRoomPill,
+                            {
+                              backgroundColor: variant.locationBackground,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.scheduleRoomText,
+                              { color: variant.locationText },
+                            ]}
+                          >
+                            {item.location}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.scheduleBodyRow}>
+                        {isClass ? null : (
+                          <View
+                            style={[
+                              styles.breakIconWrap,
+                              { backgroundColor: variant.iconBackground },
+                            ]}
+                          >
+                            <Ionicons
+                              name={getScheduleIcon(item.type)}
+                              size={26}
+                              color={variant.iconColor}
+                            />
+                          </View>
+                        )}
+
+                        <View style={styles.scheduleCopyWrap}>
+                          <Text
+                            style={[styles.scheduleTitle, { color: variant.title }]}
+                          >
+                            {item.title}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.scheduleTeacher,
+                              { color: variant.subtitle },
+                            ]}
+                          >
+                            {isClass ? item.subtitle : ''}
+                          </Text>
+                          {isClass ? null : (
+                            <Text
+                              style={[
+                                styles.breakTimeText,
+                                { color: variant.time },
+                              ]}
+                            >
+                              {item.timeLabel}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </Card>
                   </View>
-
-                  <Card style={styles.scheduleCard}>
-                    <View style={styles.scheduleTopRow}>
-                      <View style={styles.scheduleBadge}>
-                        <Text style={styles.scheduleBadgeText}>
-                          {item.subjectCode}
-                        </Text>
-                      </View>
-                      <View style={styles.scheduleRoomPill}>
-                        <Text style={styles.scheduleRoomText}>
-                          {item.room || `P-${item.period}`}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <Text style={styles.scheduleTitle}>{item.subject}</Text>
-                    <Text style={styles.scheduleTeacher}>
-                      {item.teacherName}
-                    </Text>
-
-                    <View style={styles.scheduleFooter}>
-                      <View style={styles.teacherMiniBadge}>
-                        <Text style={styles.teacherMiniBadgeText}>
-                          {item.teacherInitials || 'T'}
-                        </Text>
-                      </View>
-                      <Text style={styles.scheduleFooterText}>
-                        {item.day} • Period {item.period}
-                      </Text>
-                    </View>
-                  </Card>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </>
@@ -727,20 +819,21 @@ const styles = StyleSheet.create({
   },
   periodRail: {
     width: 76,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    gap: 8,
+    paddingTop: 20,
   },
-  periodLabel: {
+  timeValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1E2759',
+  },
+  timeMeridiem: {
+    marginTop: 6,
     fontSize: 12,
     fontWeight: '700',
-    color: palette.textSoft,
-    letterSpacing: 1,
-  },
-  periodValue: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: palette.primary,
+    color: '#94A3B8',
+    letterSpacing: 1.4,
   },
   scheduleCard: {
     flex: 1,
@@ -765,7 +858,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   scheduleRoomPill: {
-    backgroundColor: '#F3F6FB',
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -776,18 +868,42 @@ const styles = StyleSheet.create({
     color: '#6B7696',
   },
   scheduleTitle: {
-    marginTop: 20,
+    marginTop: 6,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '800',
-    color: palette.text,
     letterSpacing: -0.8,
   },
   scheduleTeacher: {
     marginTop: 8,
     fontSize: 16,
-    color: '#6B7696',
     fontWeight: '600',
+  },
+  scheduleBodyRow: {
+    marginTop: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 18,
+  },
+  scheduleCopyWrap: {
+    flex: 1,
+  },
+  breakIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  breakTimeText: {
+    marginTop: 10,
+    fontSize: 17,
+    fontWeight: '700',
   },
   scheduleFooter: {
     marginTop: 18,

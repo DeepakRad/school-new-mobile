@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.primary,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 18,
+    padding: 28,
     borderRadius: 28,
   },
   avatarWrap: {
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroName: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: '700',
     color: '#fff',
     letterSpacing: -0.5,
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
-    minHeight: 180,
+    minHeight: 160,
     justifyContent: 'space-between',
   },
   metricIconWrap: {
@@ -322,17 +322,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   metricValue: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: '800',
     color: palette.text,
     letterSpacing: -1.6,
-    marginTop: 18,
   },
   metricLabel: {
-    fontSize: 18,
+    fontSize: 16,
     color: palette.textMuted,
     fontWeight: '600',
-    marginTop: 6,
   },
   homeworkCard: {
     flexDirection: 'row',
@@ -358,7 +356,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   homeworkTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '800',
     color: palette.text,
     marginTop: 2,
@@ -404,7 +402,7 @@ const styles = StyleSheet.create({
     color: palette.text,
   },
   dateDay: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
     color: palette.text,
     lineHeight: 34,
@@ -414,13 +412,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateTitle: {
-    fontSize: 25,
+    fontSize: 18,
     fontWeight: '700',
     color: palette.text,
     letterSpacing: -0.6,
   },
   dateSubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: palette.textMuted,
     marginTop: 4,
     lineHeight: 21,

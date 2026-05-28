@@ -75,11 +75,11 @@ export default function AlertsScreen() {
 
   const { data, isLoading, isError, error, refetch, isRefetching } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => apiGet<NotificationsData>('/api/notifications'),
+    queryFn: () => apiGet<NotificationsData>('/api/notifications/'),
   });
 
   const markRead = useMutation({
-    mutationFn: () => apiPost('/api/notifications/mark-read', {}),
+    mutationFn: () => apiPost('/api/notifications/mark-read/', {}),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });

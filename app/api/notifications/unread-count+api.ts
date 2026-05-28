@@ -2,6 +2,28 @@ import { extractBearerToken, verifyToken } from '../../../lib/auth';
 import { prisma } from '../../../lib/prisma';
 import { jsonResponse } from '../../../lib/response';
 
+function resolveNotificationUserId(payload: {
+  parentId?: string;
+  studentId: string;
+}) {
+  return payload.parentId ?? payload.studentId;
+}
+
+async function getLastSeenAt(userId: string) {
+  try {
+    const state = await prisma.noticeNotificationState.findUnique({
+      where: {
+        userId_userType: { userId, userType: 'PARENT' },
+      },
+    });
+
+    return state?.lastSeenAt ?? new Date(0);
+  } catch (error) {
+    console.warn('[notifications] Failed to load notification state', error);
+    return new Date(0);
+  }
+}
+
 export async function GET(request: Request): Promise<Response> {
   try {
     const token = extractBearerToken(request.headers.get('Authorization'));
@@ -11,13 +33,8 @@ export async function GET(request: Request): Promise<Response> {
     if (!payload)
       return jsonResponse({ error: 'Invalid token' }, { status: 401 });
 
-    const state = await prisma.noticeNotificationState.findUnique({
-      where: {
-        userId_userType: { userId: payload.parentId, userType: 'PARENT' },
-      },
-    });
-
-    const lastSeenAt = state?.lastSeenAt ?? new Date(0);
+    const notificationUserId = resolveNotificationUserId(payload);
+    const lastSeenAt = await getLastSeenAt(notificationUserId);
 
     const [noticeCount, broadcastCount] = await Promise.all([
       prisma.notice.count({

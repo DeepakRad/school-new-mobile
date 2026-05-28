@@ -1,9 +1,16 @@
 import bcrypt from 'bcryptjs';
-import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
+import {
+  differenceInCalendarDays,
+  format,
+  isToday,
+  isTomorrow,
+} from 'date-fns';
 
 import { extractBearerToken, signToken, verifyToken } from './auth';
 import { prisma } from './prisma';
 import { jsonResponse } from './response';
+
+type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'LEAVE';
 
 function normalizePhoneNumber(value: string): string {
   const trimmed = value.trim();
@@ -29,8 +36,10 @@ function formatDueLabel(dueDate: Date) {
   if (isTomorrow(dueDate)) return 'Due Tomorrow';
 
   const daysUntilDue = differenceInCalendarDays(dueDate, new Date());
-  if (daysUntilDue > 1 && daysUntilDue <= 7) return `Due in ${daysUntilDue} days`;
-  if (daysUntilDue < 0) return `Overdue by ${Math.abs(daysUntilDue)} day${Math.abs(daysUntilDue) === 1 ? '' : 's'}`;
+  if (daysUntilDue > 1 && daysUntilDue <= 7)
+    return `Due in ${daysUntilDue} days`;
+  if (daysUntilDue < 0)
+    return `Overdue by ${Math.abs(daysUntilDue)} day${Math.abs(daysUntilDue) === 1 ? '' : 's'}`;
 
   return format(dueDate, 'MMM dd, yyyy');
 }
@@ -41,8 +50,7 @@ function derivePriority(dueDate: Date) {
   if (daysUntilDue < 0) return { label: 'OVERDUE', tone: 'danger' as const };
   if (daysUntilDue <= 1)
     return { label: 'HIGH PRIORITY', tone: 'danger' as const };
-  if (daysUntilDue <= 5)
-    return { label: 'IN PROGRESS', tone: 'mint' as const };
+  if (daysUntilDue <= 5) return { label: 'IN PROGRESS', tone: 'mint' as const };
 
   return { label: 'UPCOMING', tone: 'sky' as const };
 }
@@ -69,6 +77,57 @@ function getInitials(name: string) {
 
 function roundToOneDecimal(value: number) {
   return Math.round(value * 10) / 10;
+}
+
+function countsAsAbsent(status: AttendanceStatus) {
+  return status === 'ABSENT' || status === 'LEAVE';
+}
+
+function countsAsPresent(status: AttendanceStatus) {
+  return status === 'PRESENT' || status === 'LATE';
+}
+
+function resolveNotificationUserId(payload: {
+  parentId?: string;
+  studentId: string;
+}) {
+  return payload.parentId ?? payload.studentId;
+}
+
+async function getLastSeenAt(userId: string) {
+  try {
+    const noticeState = await prisma.noticeNotificationState.findUnique({
+      where: {
+        userId_userType: { userId, userType: 'PARENT' },
+      },
+    });
+
+    return noticeState?.lastSeenAt ?? new Date(0);
+  } catch (error) {
+    console.warn('[notifications] Failed to load notification state', error);
+    return new Date(0);
+  }
+}
+
+async function updateLastSeenAt(userId: string) {
+  try {
+    await prisma.noticeNotificationState.upsert({
+      where: {
+        userId_userType: { userId, userType: 'PARENT' },
+      },
+      create: {
+        userId,
+        userType: 'PARENT',
+        lastSeenAt: new Date(),
+      },
+      update: { lastSeenAt: new Date() },
+    });
+
+    return true;
+  } catch (error) {
+    console.warn('[notifications] Failed to update notification state', error);
+    return false;
+  }
 }
 
 function deriveLetterGrade(percentage: number) {
@@ -100,6 +159,32 @@ function deriveGradeTone(percentage: number) {
   return { label: 'NEEDS FOCUS', tone: 'attention' as const };
 }
 
+const dailyInsightTimeline = [
+  { period: 1, startTime: '08:00', endTime: '09:00', type: 'class' as const },
+  { period: 2, startTime: '09:00', endTime: '10:00', type: 'class' as const },
+  { startTime: '10:00', endTime: '10:15', type: 'break' as const },
+  { period: 3, startTime: '10:15', endTime: '11:15', type: 'class' as const },
+  { period: 4, startTime: '11:15', endTime: '12:15', type: 'class' as const },
+  { startTime: '12:15', endTime: '13:00', type: 'lunch' as const },
+  { period: 5, startTime: '13:00', endTime: '14:00', type: 'class' as const },
+  { period: 6, startTime: '14:00', endTime: '15:00', type: 'class' as const },
+];
+
+function formatTimeLabel(startTime: string, endTime: string) {
+  return `${startTime} - ${endTime}`;
+}
+
+function buildDisplayLocation(
+  room: string | null,
+  className: string,
+  section: string,
+) {
+  if (room) return room;
+
+  const classLabel = [className, section].filter(Boolean).join(' ');
+  return classLabel || 'Classroom';
+}
+
 export async function handleAuthLogin(request: Request): Promise<Response> {
   try {
     const body = (await request.json()) as {
@@ -119,8 +204,8 @@ export async function handleAuthLogin(request: Request): Promise<Response> {
 
     const parent = await prisma.parent.findFirst({
       where: {
-        phone: normalizedInput,
         isActive: true,
+        OR: [{ phone: normalizedInput }, { username: username.trim() }],
       },
       include: {
         students: {
@@ -240,7 +325,7 @@ export async function handleHome(request: Request): Promise<Response> {
     if (!payload)
       return jsonResponse({ error: 'Invalid token' }, { status: 401 });
 
-    const [student, settings, recentAttendance, fees, upcomingEvents, notices] =
+    const [student, settings, attendanceRecords, fees, upcomingEvents, notices] =
       await Promise.all([
         prisma.student.findUnique({
           where: { id: payload.studentId },
@@ -252,7 +337,6 @@ export async function handleHome(request: Request): Promise<Response> {
         prisma.attendance.findMany({
           where: { studentId: payload.studentId },
           orderBy: { date: 'desc' },
-          take: 30,
         }),
         prisma.studentFee.findMany({
           where: { studentId: payload.studentId },
@@ -293,10 +377,10 @@ export async function handleHome(request: Request): Promise<Response> {
         })
       : [];
 
-    const totalDays = recentAttendance.length;
-    const presentDays = recentAttendance.filter(
-      (record: (typeof recentAttendance)[number]) =>
-        record.status === 'PRESENT' || record.status === 'LATE',
+    const totalDays = attendanceRecords.length;
+    const presentDays = attendanceRecords.filter(
+      (record: (typeof attendanceRecords)[number]) =>
+        countsAsPresent(record.status),
     ).length;
     const attendancePct =
       totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : null;
@@ -337,10 +421,10 @@ export async function handleHome(request: Request): Promise<Response> {
         feeStatus: student.feeStatus,
       },
       attendanceSnapshot: {
-        percentage: student.attendance ?? attendancePct,
+        percentage: attendancePct,
         presentDays,
         totalDays,
-        isLow: (student.attendance ?? attendancePct ?? 100) < threshold,
+        isLow: (attendancePct ?? 100) < threshold,
         threshold,
       },
       feeSnapshot: {
@@ -386,6 +470,7 @@ export async function handleAttendance(request: Request): Promise<Response> {
     const yearParam = url.searchParams.get('year');
 
     let dateFilter: { gte?: Date; lte?: Date } = {};
+    const overallDateFilter = undefined;
     if (monthParam) {
       const [y, m] = monthParam.split('-').map(Number);
       if (y && m) {
@@ -408,13 +493,13 @@ export async function handleAttendance(request: Request): Promise<Response> {
       };
     }
 
-    const [student, records, settings] = await Promise.all([
-      prisma.student.findUnique({
-        where: { id: payload.studentId },
-        select: { attendance: true },
-      }),
+    const [records, overallRecords, settings] = await Promise.all([
       prisma.attendance.findMany({
         where: { studentId: payload.studentId, date: dateFilter },
+        orderBy: { date: 'desc' },
+      }),
+      prisma.attendance.findMany({
+        where: { studentId: payload.studentId },
         orderBy: { date: 'desc' },
       }),
       prisma.schoolSettings.findFirst({ select: { dailyThreshold: true } }),
@@ -426,7 +511,7 @@ export async function handleAttendance(request: Request): Promise<Response> {
       { present: number; absent: number; late: number; total: number }
     > = {};
 
-    for (const record of records) {
+    for (const record of overallRecords) {
       const key = `${record.date.getUTCFullYear()}-${String(record.date.getUTCMonth() + 1).padStart(2, '0')}`;
       if (!monthly[key]) {
         monthly[key] = { present: 0, absent: 0, late: 0, total: 0 };
@@ -434,25 +519,25 @@ export async function handleAttendance(request: Request): Promise<Response> {
 
       monthly[key].total += 1;
       if (record.status === 'PRESENT') monthly[key].present += 1;
-      else if (record.status === 'ABSENT') monthly[key].absent += 1;
+      else if (countsAsAbsent(record.status)) monthly[key].absent += 1;
       else if (record.status === 'LATE') monthly[key].late += 1;
     }
 
-    const totalDays = records.length;
-    const presentDays = records.filter(
-      (record: (typeof records)[number]) =>
-        record.status === 'PRESENT' || record.status === 'LATE',
+    const totalDays = overallRecords.length;
+    const presentDays = overallRecords.filter(
+      (record: (typeof overallRecords)[number]) =>
+      countsAsPresent(record.status),
     ).length;
     const overallPct =
       totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : null;
 
     return jsonResponse({
       overall: {
-        percentage: student?.attendance ?? overallPct,
+        percentage: overallPct,
         presentDays,
         totalDays,
         threshold,
-        isLow: (student?.attendance ?? overallPct ?? 100) < threshold,
+        isLow: (overallPct ?? 100) < threshold,
       },
       monthly: Object.entries(monthly)
         .sort((a, b) => b[0].localeCompare(a[0]))
@@ -504,12 +589,25 @@ export async function handleCalendar(request: Request): Promise<Response> {
       };
     }
 
-    const events = await prisma.calendarEvent.findMany({
-      where: { startDate: dateFilter },
-      orderBy: { startDate: 'asc' },
-    });
+    const [events, currentTerm] = await Promise.all([
+      prisma.calendarEvent.findMany({
+        where: { startDate: dateFilter },
+        orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
+      }),
+      prisma.term.findFirst({
+        where: {
+          startDate: { lte: new Date() },
+          endDate: { gte: new Date() },
+        },
+        select: { name: true },
+      }),
+    ]);
 
-    return jsonResponse({ events });
+    return jsonResponse({
+      month: monthParam,
+      currentTerm: currentTerm?.name ?? null,
+      events,
+    });
   } catch (error) {
     console.error('[GET /api/calendar]', error);
     return jsonResponse({ error: 'Internal server error' }, { status: 500 });
@@ -632,12 +730,16 @@ export async function handleAcademics(request: Request): Promise<Response> {
       string,
       { id: string; name: string; code: string }
     >(
-      subjects.map((subject: (typeof subjects)[number]) => [subject.id, subject]),
+      subjects.map((subject: (typeof subjects)[number]) => [
+        subject.id,
+        subject,
+      ]),
     );
 
     const enrichedHomework = homework.map((item: (typeof homework)[number]) => {
       const priority = derivePriority(item.dueDate);
-      const teacherName = `${item.Staff.firstName} ${item.Staff.lastName}`.trim();
+      const teacherName =
+        `${item.Staff.firstName} ${item.Staff.lastName}`.trim();
 
       return {
         id: item.id,
@@ -654,29 +756,85 @@ export async function handleAcademics(request: Request): Promise<Response> {
       };
     });
 
-    const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const dailyInsightSlots: Array<{
-      id: string;
-      day: string;
-      period: number;
-      subject: string;
-      subjectCode: string;
-      teacherName: string;
-      teacherInitials: string;
-      room: string | null;
-    }> = timetableSlots.map((item: (typeof timetableSlots)[number]) => {
-      const teacherName = `${item.Staff.firstName} ${item.Staff.lastName}`.trim();
+    const dayOrder = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ];
+    const timetableByDay = new Map(
+      dayOrder.map((day) => [day, new Map<number, (typeof timetableSlots)[number]>()]),
+    );
 
-      return {
-        id: item.id,
-        day: item.day,
-        period: item.period,
-        subject: item.Subject.name,
-        subjectCode: item.Subject.code,
-        teacherName,
-        teacherInitials: getInitials(teacherName),
-        room: item.Class.room,
-      };
+    for (const slot of timetableSlots) {
+      timetableByDay.get(slot.day)?.set(slot.period, slot);
+    }
+
+    const dailyInsightSlots = dayOrder.flatMap((day) => {
+      const slotsForDay = timetableByDay.get(day);
+      if (!slotsForDay || slotsForDay.size === 0) return [];
+
+      return dailyInsightTimeline.flatMap((timelineItem, index) => {
+        if (timelineItem.type === 'break') {
+          return {
+            id: `${day}-break-${index}`,
+            day,
+            type: 'break' as const,
+            title: 'Recess Break',
+            subtitle: formatTimeLabel(timelineItem.startTime, timelineItem.endTime),
+            badge: 'BREAK',
+            location: 'RECHARGE',
+            startTime: timelineItem.startTime,
+            endTime: timelineItem.endTime,
+            timeLabel: formatTimeLabel(timelineItem.startTime, timelineItem.endTime),
+          };
+        }
+
+        if (timelineItem.type === 'lunch') {
+          return {
+            id: `${day}-lunch-${index}`,
+            day,
+            type: 'lunch' as const,
+            title: 'Lunch Break',
+            subtitle: formatTimeLabel(timelineItem.startTime, timelineItem.endTime),
+            badge: 'BREAK',
+            location: 'CAFETERIA',
+            startTime: timelineItem.startTime,
+            endTime: timelineItem.endTime,
+            timeLabel: formatTimeLabel(timelineItem.startTime, timelineItem.endTime),
+          };
+        }
+
+        const slot = slotsForDay.get(timelineItem.period);
+        if (!slot) return [];
+
+        const teacherName = `${slot.Staff.firstName} ${slot.Staff.lastName}`.trim();
+
+        return {
+          id: slot.id,
+          day,
+          type: 'class' as const,
+          period: slot.period,
+          title: slot.Subject.name,
+          subtitle: teacherName,
+          badge: slot.Subject.code,
+          location: buildDisplayLocation(
+            slot.Class.room,
+            resolvedClassName,
+            resolvedSection,
+          ),
+          startTime: timelineItem.startTime,
+          endTime: timelineItem.endTime,
+          timeLabel: formatTimeLabel(timelineItem.startTime, timelineItem.endTime),
+          subject: slot.Subject.name,
+          subjectCode: slot.Subject.code,
+          teacherName,
+          teacherInitials: getInitials(teacherName),
+          room: slot.Class.room,
+        };
+      });
     });
     const dailyInsightDays = Array.from(
       new Set<string>(dailyInsightSlots.map((item) => item.day)),
@@ -757,12 +915,12 @@ export async function handleAcademics(request: Request): Promise<Response> {
     ).length;
     const dueThisWeek = enrichedHomework.filter(
       (item: (typeof enrichedHomework)[number]) => {
-      const daysUntilDue = differenceInCalendarDays(
-        new Date(item.dueDate),
-        new Date(),
-      );
+        const daysUntilDue = differenceInCalendarDays(
+          new Date(item.dueDate),
+          new Date(),
+        );
 
-      return daysUntilDue >= 0 && daysUntilDue <= 7;
+        return daysUntilDue >= 0 && daysUntilDue <= 7;
       },
     ).length;
 
@@ -819,13 +977,8 @@ export async function handleNotifications(request: Request): Promise<Response> {
       select: { classId: true },
     });
 
-    const noticeState = await prisma.noticeNotificationState.findUnique({
-      where: {
-        userId_userType: { userId: payload.parentId, userType: 'PARENT' },
-      },
-    });
-
-    const lastSeenAt = noticeState?.lastSeenAt ?? new Date(0);
+    const notificationUserId = resolveNotificationUserId(payload);
+    const lastSeenAt = await getLastSeenAt(notificationUserId);
 
     const [notices, broadcasts] = await Promise.all([
       prisma.notice.findMany({
@@ -905,19 +1058,10 @@ export async function handleNotificationsMarkRead(
     if (!payload)
       return jsonResponse({ error: 'Invalid token' }, { status: 401 });
 
-    await prisma.noticeNotificationState.upsert({
-      where: {
-        userId_userType: { userId: payload.parentId, userType: 'PARENT' },
-      },
-      create: {
-        userId: payload.parentId,
-        userType: 'PARENT',
-        lastSeenAt: new Date(),
-      },
-      update: { lastSeenAt: new Date() },
-    });
+    const notificationUserId = resolveNotificationUserId(payload);
+    const success = await updateLastSeenAt(notificationUserId);
 
-    return jsonResponse({ success: true });
+    return jsonResponse({ success });
   } catch (error) {
     console.error('[POST /api/notifications/mark-read]', error);
     return jsonResponse({ error: 'Internal server error' }, { status: 500 });
@@ -935,13 +1079,8 @@ export async function handleNotificationsUnreadCount(
     if (!payload)
       return jsonResponse({ error: 'Invalid token' }, { status: 401 });
 
-    const state = await prisma.noticeNotificationState.findUnique({
-      where: {
-        userId_userType: { userId: payload.parentId, userType: 'PARENT' },
-      },
-    });
-
-    const lastSeenAt = state?.lastSeenAt ?? new Date(0);
+    const notificationUserId = resolveNotificationUserId(payload);
+    const lastSeenAt = await getLastSeenAt(notificationUserId);
 
     const [noticeCount, broadcastCount] = await Promise.all([
       prisma.notice.count({
@@ -979,17 +1118,30 @@ export async function handleProfile(request: Request): Promise<Response> {
     if (!payload)
       return jsonResponse({ error: 'Invalid token' }, { status: 401 });
 
-    const student = await prisma.student.findUnique({
-      where: { id: payload.studentId },
-      include: { classRef: true },
-    });
+    const [student, parent, schoolSettings, academicYear] = await Promise.all([
+      prisma.student.findUnique({
+        where: { id: payload.studentId },
+        include: { classRef: true },
+      }),
+      prisma.parent.findUnique({
+        where: { id: payload.parentId },
+        select: { phone: true, username: true },
+      }),
+      prisma.schoolSettings.findFirst({
+        select: {
+          schoolName: true,
+          schoolLogo: true,
+          fullAddress: true,
+          officialEmail: true,
+        },
+      }),
+      prisma.academicYear.findFirst({
+        where: { isCurrent: true },
+        select: { name: true },
+      }),
+    ]);
 
     if (!student) return jsonResponse({ error: 'Not found' }, { status: 404 });
-
-    const parent = await prisma.parent.findUnique({
-      where: { id: payload.parentId },
-      select: { phone: true, username: true },
-    });
 
     return jsonResponse({
       student: {
@@ -1026,9 +1178,39 @@ export async function handleProfile(request: Request): Promise<Response> {
         phone: parent?.phone,
         username: parent?.username,
       },
+      institution: {
+        name: schoolSettings?.schoolName,
+        logo: schoolSettings?.schoolLogo,
+        address: schoolSettings?.fullAddress,
+        officialEmail: schoolSettings?.officialEmail,
+        academicYear: academicYear?.name ?? null,
+      },
     });
   } catch (error) {
     console.error('[GET /api/profile]', error);
+    return jsonResponse({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function handlePublicBranding(): Promise<Response> {
+  try {
+    const schoolSettings = await prisma.schoolSettings.findFirst({
+      select: {
+        schoolName: true,
+        schoolLogo: true,
+        fullAddress: true,
+        officialEmail: true,
+      },
+    });
+
+    return jsonResponse({
+      schoolName: schoolSettings?.schoolName ?? 'School ERP',
+      schoolLogo: schoolSettings?.schoolLogo ?? null,
+      fullAddress: schoolSettings?.fullAddress ?? null,
+      officialEmail: schoolSettings?.officialEmail ?? null,
+    });
+  } catch (error) {
+    console.error('[GET /api/public/branding]', error);
     return jsonResponse({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -1062,8 +1244,7 @@ export async function handleFees(request: Request): Promise<Response> {
       )
       .reduce((sum: number, fee: (typeof fees)[number]) => sum + fee.amount, 0);
     const totalPaid = payments.reduce(
-      (sum: number, payment: (typeof payments)[number]) =>
-        sum + payment.amount,
+      (sum: number, payment: (typeof payments)[number]) => sum + payment.amount,
       0,
     );
 

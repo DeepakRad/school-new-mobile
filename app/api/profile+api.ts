@@ -11,17 +11,30 @@ export async function GET(request: Request): Promise<Response> {
     if (!payload)
       return jsonResponse({ error: 'Invalid token' }, { status: 401 });
 
-    const student = await prisma.student.findUnique({
-      where: { id: payload.studentId },
-      include: { classRef: true },
-    });
+    const [student, parent, schoolSettings, academicYear] = await Promise.all([
+      prisma.student.findUnique({
+        where: { id: payload.studentId },
+        include: { classRef: true },
+      }),
+      prisma.parent.findUnique({
+        where: { id: payload.parentId },
+        select: { phone: true, username: true },
+      }),
+      prisma.schoolSettings.findFirst({
+        select: {
+          schoolName: true,
+          schoolLogo: true,
+          fullAddress: true,
+          officialEmail: true,
+        },
+      }),
+      prisma.academicYear.findFirst({
+        where: { isCurrent: true },
+        select: { name: true },
+      }),
+    ]);
 
     if (!student) return jsonResponse({ error: 'Not found' }, { status: 404 });
-
-    const parent = await prisma.parent.findUnique({
-      where: { id: payload.parentId },
-      select: { phone: true, username: true },
-    });
 
     return jsonResponse({
       student: {
@@ -57,6 +70,13 @@ export async function GET(request: Request): Promise<Response> {
       parent: {
         phone: parent?.phone,
         username: parent?.username,
+      },
+      institution: {
+        name: schoolSettings?.schoolName,
+        logo: schoolSettings?.schoolLogo,
+        address: schoolSettings?.fullAddress,
+        officialEmail: schoolSettings?.officialEmail,
+        academicYear: academicYear?.name ?? null,
       },
     });
   } catch (error) {

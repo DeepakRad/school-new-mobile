@@ -1,8 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,28 +18,59 @@ import {
 import { z } from 'zod';
 
 import { useAuth } from '../../hooks/useAuth';
+import { apiGet } from '../../lib/api';
 
 const schema = z.object({
-  phone: z.string().min(1, 'Phone number is required'),
+  username: z.string().min(1, 'Phone number is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
 type FormData = z.infer<typeof schema>;
 
+interface BrandingData {
+  schoolName: string;
+  schoolLogo?: string | null;
+  fullAddress?: string | null;
+  officialEmail?: string | null;
+}
+
 export default function LoginScreen() {
   const { login } = useAuth();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const { data: branding } = useQuery({
+    queryKey: ['public-branding'],
+    queryFn: () => apiGet<BrandingData>('/api/public/branding'),
+    retry: 1,
+  });
 
   const {
     control,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      username: branding?.officialEmail ?? '',
+      password: '',
+    },
+  });
+
+  useEffect(() => {
+    if (branding?.officialEmail) {
+      reset((values) => ({
+        username: values.username || branding.officialEmail || '',
+        password: values.password,
+      }));
+    }
+  }, [branding?.officialEmail, reset]);
 
   const onSubmit = async (data: FormData) => {
     try {
       setServerError(null);
-      await login(data.phone, data.password);
+      await login(data.username, data.password);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Login failed');
     }
@@ -50,21 +84,30 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>🎓</Text>
-          </View>
-          <Text style={styles.schoolName}>School Portal</Text>
-          <Text style={styles.tagline}>Parent & Guardian App</Text>
-        </View>
-
-        {/* Card */}
         <View style={styles.card}>
-          <Text style={styles.title}>Welcome back</Text>
+          <View style={styles.logoWrap}>
+            {branding?.schoolLogo ? (
+              <Image
+                source={{ uri: branding.schoolLogo }}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={styles.logoFallback}>
+                <Ionicons name="school-outline" size={34} color="#1F2B63" />
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.title}>
+            {branding?.schoolName
+              ? `Welcome to ${branding.schoolName}`
+              : 'Welcome to School ERP'}
+          </Text>
           <Text style={styles.subtitle}>
-            Sign in with your parent credentials
+            Sign in to manage your institution with ease
           </Text>
 
           {serverError ? (
@@ -73,55 +116,75 @@ export default function LoginScreen() {
             </View>
           ) : null}
 
-          {/* Phone */}
           <View style={styles.field}>
             <Text style={styles.label}>Phone Number</Text>
             <Controller
               control={control}
-              name="phone"
+              name="username"
               render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
+                <View
                   style={[
-                    styles.input,
-                    errors.phone ? styles.inputError : null,
+                    styles.inputShell,
+                    errors.username && styles.inputError,
                   ]}
-                  placeholder="Enter your phone number"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="phone-pad"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                />
+                >
+                  <Ionicons name="mail" size={20} color="#A4AEC3" />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your phone number"
+                    placeholderTextColor="#A4AEC3"
+                    keyboardType="phone-pad"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                  />
+                </View>
               )}
             />
-            {errors.phone ? (
-              <Text style={styles.fieldError}>{errors.phone.message}</Text>
+            {errors.username ? (
+              <Text style={styles.fieldError}>{errors.username.message}</Text>
             ) : null}
           </View>
 
-          {/* Password */}
           <View style={styles.field}>
-            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordRow}>
+              <Text style={styles.label}>Password</Text>
+            </View>
             <Controller
               control={control}
               name="password"
               render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
+                <View
                   style={[
-                    styles.input,
-                    errors.password ? styles.inputError : null,
+                    styles.inputShell,
+                    errors.password && styles.inputError,
                   ]}
-                  placeholder="Enter your password"
-                  placeholderTextColor="#9CA3AF"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                />
+                >
+                  <Ionicons name="lock-closed" size={20} color="#A4AEC3" />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your password"
+                    placeholderTextColor="#A4AEC3"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword((value) => !value)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={22}
+                      color="#A4AEC3"
+                    />
+                  </TouchableOpacity>
+                </View>
               )}
             />
             {errors.password ? (
@@ -130,15 +193,18 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, isSubmitting ? styles.buttonDisabled : null]}
+            style={[styles.button, isSubmitting && styles.buttonDisabled]}
             onPress={handleSubmit(onSubmit)}
             disabled={isSubmitting}
-            activeOpacity={0.85}
+            activeOpacity={0.9}
           >
             {isSubmitting ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
+              <>
+                <Text style={styles.buttonText}>Sign In</Text>
+                <Ionicons name="arrow-forward" size={22} color="#fff" />
+              </>
             )}
           </TouchableOpacity>
         </View>
@@ -150,129 +216,130 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#EFF2F8',
   },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#4F46E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  logoText: {
-    fontSize: 36,
-  },
-  schoolName: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: -0.5,
-  },
-  tagline: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
+    paddingHorizontal: 24,
+    paddingVertical: 36,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    backgroundColor: '#FFFFFF',
+    borderRadius: 38,
+    paddingHorizontal: 28,
+    paddingVertical: 34,
+    shadowColor: '#1F2B63',
+    shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowRadius: 30,
+    elevation: 10,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
+  logoWrap: {
+    alignItems: 'center',
     marginBottom: 24,
   },
-  errorBanner: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+  logoImage: {
+    width: 72,
+    height: 72,
   },
-  errorBannerText: {
-    color: '#DC2626',
-    fontSize: 13,
+  logoFallback: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '800',
+    color: '#0F1734',
+    textAlign: 'center',
+    letterSpacing: -1,
+  },
+  subtitle: {
+    marginTop: 10,
+    marginBottom: 28,
+    fontSize: 16,
+    lineHeight: 23,
+    color: '#7E869F',
     textAlign: 'center',
   },
   field: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 6,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#18213E',
+    marginBottom: 10,
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inputShell: {
+    minHeight: 68,
+    borderRadius: 24,
+    backgroundColor: '#EEF3FF',
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    fontSize: 15,
+    flex: 1,
+    fontSize: 16,
     color: '#111827',
-    backgroundColor: '#F9FAFB',
+    paddingVertical: 18,
   },
   inputError: {
-    borderColor: '#EF4444',
+    borderColor: '#E45A5A',
   },
   fieldError: {
-    color: '#EF4444',
+    marginTop: 6,
     fontSize: 12,
-    marginTop: 4,
+    color: '#E45A5A',
+  },
+  errorBanner: {
+    backgroundColor: '#FFE7E1',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 18,
+  },
+  errorBannerText: {
+    color: '#B23434',
+    fontSize: 13,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   button: {
-    backgroundColor: '#4F46E5',
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
+    backgroundColor: '#1F2B63',
+    borderRadius: 24,
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    shadowColor: '#1F2B63',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.16,
+    shadowRadius: 22,
+    elevation: 10,
   },
   buttonDisabled: {
-    opacity: 0.7,
+    opacity: 0.72,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  hint: {
-    marginTop: 16,
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#9CA3AF',
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
   },
 });

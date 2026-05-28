@@ -29,12 +29,25 @@ export async function GET(request: Request): Promise<Response> {
       };
     }
 
-    const events = await prisma.calendarEvent.findMany({
-      where: { startDate: dateFilter },
-      orderBy: { startDate: 'asc' },
-    });
+    const [events, currentTerm] = await Promise.all([
+      prisma.calendarEvent.findMany({
+        where: { startDate: dateFilter },
+        orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
+      }),
+      prisma.term.findFirst({
+        where: {
+          startDate: { lte: new Date() },
+          endDate: { gte: new Date() },
+        },
+        select: { name: true },
+      }),
+    ]);
 
-    return jsonResponse({ events });
+    return jsonResponse({
+      month: monthParam,
+      currentTerm: currentTerm?.name ?? null,
+      events,
+    });
   } catch (error) {
     console.error('[GET /api/calendar]', error);
     return jsonResponse({ error: 'Internal server error' }, { status: 500 });

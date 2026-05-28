@@ -235,14 +235,15 @@ const styles = StyleSheet.create({
     color: palette.text,
   },
   sectionRow: {
+    paddingTop: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '600',
     color: palette.text,
     letterSpacing: -0.3,
   },

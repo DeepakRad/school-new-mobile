@@ -2,6 +2,16 @@ import { extractBearerToken, verifyToken } from '../../lib/auth';
 import { prisma } from '../../lib/prisma';
 import { jsonResponse } from '../../lib/response';
 
+type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'LEAVE';
+
+function countsAsAbsent(status: AttendanceStatus) {
+  return status === 'ABSENT' || status === 'LEAVE';
+}
+
+function countsAsPresent(status: AttendanceStatus) {
+  return status === 'PRESENT' || status === 'LATE';
+}
+
 export async function GET(request: Request): Promise<Response> {
   try {
     const token = extractBearerToken(request.headers.get('Authorization'));
@@ -16,6 +26,7 @@ export async function GET(request: Request): Promise<Response> {
     const yearParam = url.searchParams.get('year');
 
     let dateFilter: { gte?: Date; lte?: Date } = {};
+    const overallDateFilter = undefined;
     if (monthParam) {
       const [y, m] = monthParam.split('-').map(Number);
       if (y && m) {
@@ -25,13 +36,12 @@ export async function GET(request: Request): Promise<Response> {
         };
       }
     } else if (yearParam) {
-      const y = parseInt(yearParam);
+      const y = parseInt(yearParam, 10);
       dateFilter = {
         gte: new Date(Date.UTC(y, 0, 1)),
         lte: new Date(Date.UTC(y + 1, 0, 1) - 1),
       };
     } else {
-      // Current year by default
       const y = new Date().getUTCFullYear();
       dateFilter = {
         gte: new Date(Date.UTC(y, 0, 1)),
@@ -39,13 +49,13 @@ export async function GET(request: Request): Promise<Response> {
       };
     }
 
-    const [student, records, settings] = await Promise.all([
-      prisma.student.findUnique({
-        where: { id: payload.studentId },
-        select: { attendance: true, firstName: true },
-      }),
+    const [records, overallRecords, settings] = await Promise.all([
       prisma.attendance.findMany({
         where: { studentId: payload.studentId, date: dateFilter },
+        orderBy: { date: 'desc' },
+      }),
+      prisma.attendance.findMany({
+        where: { studentId: payload.studentId },
         orderBy: { date: 'desc' },
       }),
       prisma.schoolSettings.findFirst({ select: { dailyThreshold: true } }),
@@ -58,31 +68,31 @@ export async function GET(request: Request): Promise<Response> {
       string,
       { present: number; absent: number; late: number; total: number }
     > = {};
-    for (const r of records) {
+    for (const r of overallRecords) {
       const key = `${r.date.getUTCFullYear()}-${String(r.date.getUTCMonth() + 1).padStart(2, '0')}`;
       if (!monthly[key])
         monthly[key] = { present: 0, absent: 0, late: 0, total: 0 };
       monthly[key].total++;
       if (r.status === 'PRESENT') monthly[key].present++;
-      else if (r.status === 'ABSENT') monthly[key].absent++;
+      else if (countsAsAbsent(r.status)) monthly[key].absent++;
       else if (r.status === 'LATE') monthly[key].late++;
     }
 
-    const totalDays = records.length;
-    const presentDays = records.filter(
-      (record: (typeof records)[number]) =>
-        record.status === 'PRESENT' || record.status === 'LATE',
+    const totalDays = overallRecords.length;
+    const presentDays = overallRecords.filter(
+      (record: (typeof overallRecords)[number]) =>
+      countsAsPresent(record.status),
     ).length;
     const overallPct =
       totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : null;
 
     return jsonResponse({
       overall: {
-        percentage: student?.attendance ?? overallPct,
+        percentage: overallPct,
         presentDays,
         totalDays,
         threshold,
-        isLow: (student?.attendance ?? overallPct ?? 100) < threshold,
+        isLow: (overallPct ?? 100) < threshold,
       },
       monthly: Object.entries(monthly)
         .sort((a, b) => b[0].localeCompare(a[0]))

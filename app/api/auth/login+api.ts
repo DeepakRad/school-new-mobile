@@ -23,8 +23,8 @@ export async function POST(request: Request): Promise<Response> {
 
     const parent = await prisma.parent.findFirst({
       where: {
-        phone: normalizedInput,
         isActive: true,
+        OR: [{ phone: normalizedInput }, { username: username.trim() }],
       },
       include: {
         students: {
