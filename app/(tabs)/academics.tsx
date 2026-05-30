@@ -20,6 +20,7 @@ import {
   SectionTitle,
 } from '../../components/ui';
 import { apiGet } from '../../lib/api';
+import { defaultScreenQueryOptions } from '../../lib/query';
 import type { AcademicsResponse } from '../../types/api';
 
 const tabs = ['Homework', 'Daily Insight', 'Grades'] as const;
@@ -157,6 +158,7 @@ export default function AcademicsScreen() {
   const { data, isLoading, isError, error, refetch, isRefetching } = useQuery({
     queryKey: ['academics'],
     queryFn: () => apiGet<AcademicsResponse>('/api/academics'),
+    ...defaultScreenQueryOptions,
   });
 
   const timetableSlots = data?.dailyInsight?.slots ?? [];
@@ -361,8 +363,7 @@ export default function AcademicsScreen() {
                       {(
                         timetableSlots.filter(
                           (item) => item.day === day && item.type === 'class',
-                        )
-                          .length ?? 0
+                        ).length ?? 0
                       )
                         .toString()
                         .padStart(2, '0')}
@@ -456,7 +457,10 @@ export default function AcademicsScreen() {
 
                         <View style={styles.scheduleCopyWrap}>
                           <Text
-                            style={[styles.scheduleTitle, { color: variant.title }]}
+                            style={[
+                              styles.scheduleTitle,
+                              { color: variant.title },
+                            ]}
                           >
                             {item.title}
                           </Text>

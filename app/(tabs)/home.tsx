@@ -20,6 +20,7 @@ import {
   SectionTitle,
 } from '../../components/ui';
 import { apiGet } from '../../lib/api';
+import { defaultScreenQueryOptions } from '../../lib/query';
 
 interface HomeData {
   student: {
@@ -80,6 +81,7 @@ export default function HomeScreen() {
   const { data, isLoading, isError, error, refetch, isRefetching } = useQuery({
     queryKey: ['home'],
     queryFn: () => apiGet<HomeData>('/api/home'),
+    ...defaultScreenQueryOptions,
   });
 
   if (isLoading) return <LoadingScreen />;

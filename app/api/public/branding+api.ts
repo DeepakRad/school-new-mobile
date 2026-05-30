@@ -17,6 +17,10 @@ export async function GET(): Promise<Response> {
       schoolLogo: schoolSettings?.schoolLogo ?? null,
       fullAddress: schoolSettings?.fullAddress ?? null,
       officialEmail: schoolSettings?.officialEmail ?? null,
+    }, {
+      headers: {
+        'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=600',
+      },
     });
   } catch (error) {
     console.error('[GET /api/public/branding]', error);

@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import {
   SafeAreaView,
@@ -16,32 +15,8 @@ import { Card, ErrorScreen, LoadingScreen, palette } from '../components/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useThemePreference } from '../hooks/useThemePreference';
 import { apiGet } from '../lib/api';
-
-interface ProfileData {
-  student: {
-    id: string;
-    admissionNo: string;
-    rollNo: string;
-    firstName: string;
-    middleName?: string | null;
-    lastName: string;
-    className: string;
-    section: string;
-    admissionDate?: string | null;
-    currentAddress?: string | null;
-  };
-  parent: {
-    phone?: string | null;
-    username?: string | null;
-  };
-  institution?: {
-    name?: string | null;
-    logo?: string | null;
-    address?: string | null;
-    officialEmail?: string | null;
-    academicYear?: string | null;
-  };
-}
+import { profileQueryOptions } from '../lib/query';
+import type { ProfileData } from '../types/profile';
 
 function buildFullName(student: ProfileData['student']) {
   return [student.firstName, student.middleName, student.lastName]
@@ -57,6 +32,7 @@ export default function ProfileScreen() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['profile'],
     queryFn: () => apiGet<ProfileData>('/api/profile'),
+    ...profileQueryOptions,
   });
 
   if (isLoading) return <LoadingScreen />;
@@ -83,7 +59,7 @@ export default function ProfileScreen() {
         hero: '#2A356B',
         text: '#1C233B',
         muted: '#8D95B2',
-        label: '#4B4F5C',
+        label: '#6c6f7a',
         border: '#D3D8E4',
         topButton: '#FFFFFF',
       };
@@ -132,10 +108,6 @@ export default function ProfileScreen() {
           <Text style={styles.grade}>
             Class {data.student.className} • {data.student.section}
           </Text>
-
-          <TouchableOpacity style={styles.editButton} activeOpacity={0.88}>
-            <Text style={styles.editButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
         </View>
 
         <Text style={[styles.sectionHeading, { color: themeColors.label }]}>
@@ -153,6 +125,56 @@ export default function ProfileScreen() {
               </Text>
             </View>
           ))}
+        </Card>
+
+        <Text style={[styles.sectionHeading, { color: themeColors.label }]}>
+          ACCOUNT SETTINGS
+        </Text>
+
+        <Card
+          style={[
+            styles.settingsCard,
+            {
+              backgroundColor: themeColors.card,
+              borderColor: themeColors.border,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.settingRow}
+            activeOpacity={0.85}
+            onPress={() => router.push('/parent-profile')}
+          >
+            <View
+              style={[
+                styles.settingIconWrap,
+                { backgroundColor: isDark ? '#23305C' : '#DFE4ED' },
+              ]}
+            >
+              <Ionicons
+                name="person-circle-outline"
+                size={26}
+                color={themeColors.text}
+              />
+            </View>
+
+            <View style={styles.settingCopy}>
+              <Text style={[styles.settingTitle, { color: themeColors.text }]}>
+                Parent Profile
+              </Text>
+              <Text
+                style={[styles.settingSubtitle, { color: themeColors.muted }]}
+              >
+                Manage your contact details
+              </Text>
+            </View>
+
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={themeColors.muted}
+            />
+          </TouchableOpacity>
         </Card>
 
         <Text style={[styles.sectionHeading, { color: themeColors.label }]}>
@@ -308,14 +330,14 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: 1,
   },
   infoValue: {
     marginTop: 10,
-    fontSize: 22,
-    lineHeight: 30,
-    fontWeight: '800',
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '700',
   },
   divider: {
     height: 1,
@@ -329,6 +351,8 @@ const styles = StyleSheet.create({
   },
   preferenceCard: {
     borderRadius: 24,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
   },
   preferenceHeader: {
     flexDirection: 'row',
@@ -345,6 +369,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     maxWidth: 220,
+  },
+  settingsCard: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  settingIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingCopy: {
+    flex: 1,
+  },
+  settingTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  settingSubtitle: {
+    marginTop: 4,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
   },
   metaCard: {
     borderRadius: 24,

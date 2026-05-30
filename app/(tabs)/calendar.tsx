@@ -32,6 +32,7 @@ import {
   palette,
 } from '../../components/ui';
 import { apiGet } from '../../lib/api';
+import { defaultScreenQueryOptions } from '../../lib/query';
 
 interface CalendarData {
   month?: string | null;
@@ -76,6 +77,7 @@ export default function CalendarScreen() {
   const { data, isLoading, isError, error, refetch, isRefetching } = useQuery({
     queryKey: ['calendar', monthKey],
     queryFn: () => apiGet<CalendarData>(`/api/calendar?month=${monthKey}`),
+    ...defaultScreenQueryOptions,
   });
 
   const calendarDays = useMemo(() => {
@@ -344,7 +346,7 @@ const styles = StyleSheet.create({
   },
   monthTitle: {
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: '700',
     color: palette.primary,
     letterSpacing: -0.8,
   },
@@ -384,7 +386,8 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: 20,
+    marginTop: 3,
   },
   dayCellActive: {
     backgroundColor: palette.primary,
@@ -426,8 +429,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   scheduleTitle: {
-    fontSize: 30,
-    fontWeight: '900',
+    fontSize: 26,
+    fontWeight: '700',
     color: palette.primary,
     letterSpacing: -1,
   },

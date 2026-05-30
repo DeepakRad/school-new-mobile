@@ -20,6 +20,7 @@ import {
   SectionTitle,
 } from '../../components/ui';
 import { apiGet, apiPost } from '../../lib/api';
+import { notificationsQueryOptions } from '../../lib/query';
 
 interface NotificationsData {
   notifications: Array<{
@@ -76,6 +77,7 @@ export default function AlertsScreen() {
   const { data, isLoading, isError, error, refetch, isRefetching } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => apiGet<NotificationsData>('/api/notifications/'),
+    ...notificationsQueryOptions,
   });
 
   const markRead = useMutation({
@@ -111,23 +113,6 @@ export default function AlertsScreen() {
         subtitle="Stay updated with your child's academic journey and school life."
       />
 
-      {/* <View style={styles.categoryGrid}>
-        {['ACADEMIC', 'ADMIN', 'BROADCAST'].map((type) => {
-          const config = typeStyles[type];
-          return (
-            <Card key={type} style={[styles.categoryCard, { backgroundColor: config.bg }]}> 
-              <View style={styles.categoryIcon}>
-                <Ionicons name={config.icon} size={18} color={config.accent} />
-              </View>
-              <Text style={styles.categoryTitle}>{config.title}</Text>
-              <Text style={styles.categorySubtitle}>
-                {type === 'ACADEMIC' ? 'Grades & Exams' : type === 'ADMIN' ? 'Fees & Holidays' : 'Teacher Notes'}
-              </Text>
-            </Card>
-          );
-        })}
-      </View> */}
-
       <SectionTitle
         title="Recent Updates"
         trailing={
@@ -151,8 +136,6 @@ export default function AlertsScreen() {
         <View style={styles.feed}>
           {notifications.map((item, index) => {
             const config = typeStyles[item.type] ?? typeStyles.BROADCAST;
-            const buttonLabel =
-              item.type === 'ADMIN' ? 'Pay Now' : 'View Report';
             return (
               <Card
                 key={`${item.source}-${item.id}`}
@@ -173,20 +156,6 @@ export default function AlertsScreen() {
                 <Text style={styles.feedBody} numberOfLines={4}>
                   {item.body}
                 </Text>
-                <View style={styles.feedActions}>
-                  <TouchableOpacity
-                    style={styles.primaryAction}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.primaryActionText}>{buttonLabel}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.secondaryAction}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.secondaryActionText}>Dismiss</Text>
-                  </TouchableOpacity>
-                </View>
               </Card>
             );
           })}
@@ -279,16 +248,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.9,
   },
   feedTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '600',
     color: palette.text,
     letterSpacing: -0.5,
-    marginTop: 8,
+    marginTop: 18,
   },
   feedBody: {
     fontSize: 15,
     color: palette.textMuted,
-    lineHeight: 22,
+    lineHeight: 18,
     marginTop: 8,
   },
   feedActions: {

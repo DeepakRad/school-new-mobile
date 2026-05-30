@@ -30,6 +30,7 @@ import {
   SectionTitle,
 } from '../../components/ui';
 import { apiGet } from '../../lib/api';
+import { defaultScreenQueryOptions } from '../../lib/query';
 
 interface AttendanceData {
   overall: {
@@ -72,6 +73,7 @@ export default function AttendanceScreen() {
   const { data, isLoading, isError, error, refetch, isRefetching } = useQuery({
     queryKey: ['attendance', monthKey],
     queryFn: () => apiGet<AttendanceData>(`/api/attendance?month=${monthKey}`),
+    ...defaultScreenQueryOptions,
   });
 
   const dayMap = useMemo(() => {

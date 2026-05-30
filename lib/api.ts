@@ -1,4 +1,4 @@
-import { getToken } from './storage';
+import { getCachedToken, getToken } from './storage';
 
 const DEV_BASE_URL = 'http://localhost:8081';
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -18,7 +18,8 @@ function resolveBaseUrl() {
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
-  const token = await getToken();
+  const cachedToken = getCachedToken();
+  const token = cachedToken ?? (await getToken());
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

@@ -18,7 +18,13 @@ export async function GET(request: Request): Promise<Response> {
       }),
       prisma.parent.findUnique({
         where: { id: payload.parentId },
-        select: { phone: true, username: true },
+        select: {
+          phone: true,
+          isActive: true,
+          lastLoginAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       }),
       prisma.schoolSettings.findFirst({
         select: {
@@ -35,6 +41,9 @@ export async function GET(request: Request): Promise<Response> {
     ]);
 
     if (!student) return jsonResponse({ error: 'Not found' }, { status: 404 });
+
+    const parentName =
+      student.guardianName ?? student.fatherName ?? student.motherName ?? null;
 
     return jsonResponse({
       student: {
@@ -68,8 +77,8 @@ export async function GET(request: Request): Promise<Response> {
         status: student.status,
       },
       parent: {
+        name: parentName,
         phone: parent?.phone,
-        username: parent?.username,
       },
       institution: {
         name: schoolSettings?.schoolName,

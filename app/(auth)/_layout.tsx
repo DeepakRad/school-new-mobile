@@ -4,9 +4,9 @@ import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function AuthLayout() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isBootstrapped, isAuthenticated } = useAuth();
 
-  if (isLoading) {
+  if (!isBootstrapped) {
     return (
       <View
         style={{

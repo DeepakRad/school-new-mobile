@@ -7,13 +7,14 @@ import {
   ThemePreferenceProvider,
   useThemePreference,
 } from '../hooks/useThemePreference';
+import { defaultScreenQueryOptions } from '../lib/query';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
-      staleTime: 1000 * 60 * 5,
-    },
+      ...defaultScreenQueryOptions,
+      retry: 1,
+      },
   },
 });
 
@@ -39,6 +40,13 @@ function AppShell() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="profile"
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="parent-profile"
           options={{
             presentation: 'modal',
             headerShown: false,

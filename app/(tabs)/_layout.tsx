@@ -114,11 +114,11 @@ function TabIcon({
 }
 
 export default function TabsLayout() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isBootstrapped, isAuthenticated } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  if (isLoading) {
+  if (!isBootstrapped) {
     return (
       <View style={styles.loadingWrap}>
         <ActivityIndicator size="large" color={palette.primary} />

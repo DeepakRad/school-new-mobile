@@ -19,6 +19,7 @@ import { z } from 'zod';
 
 import { useAuth } from '../../hooks/useAuth';
 import { apiGet } from '../../lib/api';
+import { profileQueryOptions } from '../../lib/query';
 
 const schema = z.object({
   username: z.string().min(1, 'Phone number is required'),
@@ -43,6 +44,7 @@ export default function LoginScreen() {
     queryKey: ['public-branding'],
     queryFn: () => apiGet<BrandingData>('/api/public/branding'),
     retry: 1,
+    ...profileQueryOptions,
   });
 
   const {
